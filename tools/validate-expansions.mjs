@@ -1,34 +1,13 @@
 // 拡張データ（expansions/<id>/）の書き方を確かめる。誤りがあれば一覧を出して終了コード1で終わる。
-// 効果の部品はフェーズ1で決めるので、いまは札の基本の項目だけを見る。
+// 決まりの中身は src/core/schema.js にある（ゲームの処理と同じものを使う）。
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateExpansion } from '../src/core/schema.js';
 
-export const ELEMENTS = ['white', 'red', 'blue', 'green', 'yellow'];
+export { validateExpansion };
+
 const ROOT = fileURLToPath(new URL('../expansions/', import.meta.url));
-
-export function validateExpansion(dirName, meta, cards) {
-  const errors = [];
-  const err = (msg) => errors.push(`${dirName}: ${msg}`);
-  if (meta.id !== dirName) err(`expansion.json の id "${meta.id}" がフォルダ名と違う`);
-  if (typeof meta.name !== 'string' || !meta.name) err('expansion.json に name がない');
-  if (!/^\d+\.\d+\.\d+$/.test(meta.version ?? '')) err('expansion.json の version は 1.2.3 の形にする');
-  if (!Array.isArray(cards)) { err('cards.json は配列にする'); return errors; }
-  const seen = new Set();
-  cards.forEach((c, i) => {
-    const at = `札${i + 1}（${c?.id ?? 'id なし'}）`;
-    if (!c.id?.startsWith(`${dirName}-`)) err(`${at}: id は "${dirName}-" で始める`);
-    if (seen.has(c.id)) err(`${at}: id が重なっている`);
-    seen.add(c.id);
-    if (!c.name) err(`${at}: name がない`);
-    if (!ELEMENTS.includes(c.element)) err(`${at}: element は ${ELEMENTS.join('・')} のどれか`);
-    for (const [k, v] of Object.entries(c.cost ?? {})) {
-      if (!ELEMENTS.includes(k) || !Number.isInteger(v) || v < 0) err(`${at}: cost の ${k} が正しくない`);
-    }
-    if (!Array.isArray(c.stages) || c.stages.length !== 3) err(`${at}: stages は段階1〜3の3つにする`);
-  });
-  return errors;
-}
 
 async function main() {
   const dirs = (await readdir(ROOT, { withFileTypes: true })).filter((d) => d.isDirectory());
