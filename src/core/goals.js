@@ -1,33 +1,40 @@
 // 目標札（D13・フェーズ2の8枚）。条件は部品では書きにくいので、ここに直接書く。
-// 1ゲームに3枚。一番乗りのラウンドに満たした人は5点、それより後は3点。取った点は残る。
+// 1ゲームに3枚。点は満たしたラウンドの順に 5・3・1・0 点（同じラウンドに満たした人は同じ点）。取った点は残る。
+// 工程8（G0〜G8）：ほぼ全員が取っていた6枚を重くし、点に順位の傾斜をつけた（#5）。
 import { LINES, adjacent } from './garden.js';
 import { ELEMENTS } from './schema.js';
 
-export const FIRST_POINTS = 5;
-export const LATER_POINTS = 3;
+export const GOAL_POINTS = [5, 3, 1, 0]; // 満たしたラウンドの順（工程8 G0）
+
+// そのお題を round に満たしたら何点か。claims はそのお題をもう満たした人の並び（{ player, round }）
+export function goalPointsOf(claims, round) {
+  const rounds = [...new Set(claims.map((x) => x.round))].sort((a, b) => a - b);
+  const i = rounds.includes(round) ? rounds.indexOf(round) : rounds.filter((x) => x < round).length;
+  return GOAL_POINTS[i] ?? 0;
+}
 
 const defOf = (cat, inst) => cat.cards[inst.id];
 
 export const GOALS = {
   'same-line': {
-    name: 'そろいの花壇', text: '一列（行か列）を同じ色のカード3枚でそろえる',
-    check: (cat, g) => LINES.some((l) => l.every((c) => g[c]) && new Set(l.map((c) => defOf(cat, g[c]).element)).size === 1),
+    name: 'そろいの花壇', text: '一列（行か列）を同じ色の★★以上のカード3枚でそろえる',
+    check: (cat, g) => LINES.some((l) => l.every((c) => g[c]?.stage >= 2) && new Set(l.map((c) => defOf(cat, g[c]).element)).size === 1),
   },
   'rainbow-line': {
-    name: '虹の小道', text: '一列（行か列）を違う色のカード3枚で並べる',
-    check: (cat, g) => LINES.some((l) => l.every((c) => g[c]) && new Set(l.map((c) => defOf(cat, g[c]).element)).size === 3),
+    name: '虹の小道', text: '一列（行か列）を違う色の★★以上のカード3枚で並べる',
+    check: (cat, g) => LINES.some((l) => l.every((c) => g[c]?.stage >= 2) && new Set(l.map((c) => defOf(cat, g[c]).element)).size === 3),
   },
   'four-corners': {
     name: '四つ角の守り', text: '中央と4つの角にカードがある',
     check: (cat, g) => [0, 2, 4, 6, 8].every((c) => g[c]),
   },
   'big-tree': {
-    name: '大きな木', text: '★★★のカードが2枚',
-    check: (cat, g) => g.filter((x) => x && x.stage === 3).length >= 2,
+    name: '大きな木', text: '★★★のカードが4枚',
+    check: (cat, g) => g.filter((x) => x && x.stage === 3).length >= 4,
   },
   lush: {
-    name: '茂った庭', text: '★★以上のカードが5枚',
-    check: (cat, g) => g.filter((x) => x && x.stage >= 2).length >= 5,
+    name: '茂った庭', text: '★★以上のカードが7枚',
+    check: (cat, g) => g.filter((x) => x && x.stage >= 2).length >= 7,
   },
   'five-colors': {
     name: '五色の庭', text: '5色すべてのカードが庭にある',
@@ -42,22 +49,22 @@ export const GOALS = {
     },
   },
   'pair-sprouts': {
-    name: '対の芽', text: '同じ色の★★以上のカード2枚が隣り合う',
-    check: (cat, g) => g.some((x, i) => x && x.stage >= 2 && adjacent(i).some((j) => {
+    name: '対の芽', text: '同じ色の★★★のカード2枚が隣り合う',
+    check: (cat, g) => g.some((x, i) => x && x.stage === 3 && adjacent(i).some((j) => {
       const y = g[j];
-      return y && y.stage >= 2 && defOf(cat, y).element === defOf(cat, x).element;
+      return y && y.stage === 3 && defOf(cat, y).element === defOf(cat, x).element;
     })),
   },
   // 拡張を混ぜたゲームだけに出る（出身が2種類以上のとき）
   'world-cross': {
-    name: '世界の交わり', text: '違う世界のカードどうしが隣り合う所が3か所', needsOrigins: 2,
+    name: '世界の交わり', text: '違う世界のカードどうしが隣り合う所が5か所', needsOrigins: 2,
     check: (cat, g) => {
       let n = 0;
       g.forEach((x, i) => {
         if (!x) return;
         for (const j of adjacent(i)) if (j > i && g[j] && defOf(cat, g[j]).origin !== defOf(cat, x).origin) n++;
       });
-      return n >= 3;
+      return n >= 5;
     },
   },
 };
@@ -65,17 +72,18 @@ export const GOALS = {
 // お題までの進み具合（0〜1）。CPU「かしこい」が、まだ満たしていないお題を少し狙うのに使う（工程8 Q1）
 const elOf = (cat, x) => defOf(cat, x).element;
 const PROGRESS = {
+  // ★★以上は1枚、★は半分と数える
   'same-line': (cat, g) => Math.max(...LINES.map((l) => {
-    const els = l.filter((c) => g[c]).map((c) => elOf(cat, g[c]));
-    return new Set(els).size > 1 ? 0 : els.length / 3;
+    const cs = l.filter((c) => g[c]);
+    return new Set(cs.map((c) => elOf(cat, g[c]))).size > 1 ? 0 : cs.reduce((s, c) => s + (g[c].stage >= 2 ? 1 : 0.5), 0) / 3;
   })),
   'rainbow-line': (cat, g) => Math.max(...LINES.map((l) => {
-    const els = l.filter((c) => g[c]).map((c) => elOf(cat, g[c]));
-    return new Set(els).size < els.length ? 0 : els.length / 3;
+    const cs = l.filter((c) => g[c]);
+    return new Set(cs.map((c) => elOf(cat, g[c]))).size < cs.length ? 0 : cs.reduce((s, c) => s + (g[c].stage >= 2 ? 1 : 0.5), 0) / 3;
   })),
   'four-corners': (cat, g) => [0, 2, 4, 6, 8].filter((c) => g[c]).length / 5,
-  'big-tree': (cat, g) => g.filter(Boolean).map((x) => (x.stage - 1) / 2).sort((a, b) => b - a).slice(0, 2).reduce((a, b) => a + b, 0) / 2,
-  lush: (cat, g) => Math.min(1, (g.filter((x) => x && x.stage >= 2).length + 0.3 * g.filter((x) => x && x.stage === 1).length) / 5),
+  'big-tree': (cat, g) => g.filter(Boolean).map((x) => (x.stage - 1) / 2).sort((a, b) => b - a).slice(0, 4).reduce((a, b) => a + b, 0) / 4,
+  lush: (cat, g) => Math.min(1, (g.filter((x) => x && x.stage >= 2).length + 0.3 * g.filter((x) => x && x.stage === 1).length) / 7),
   'five-colors': (cat, g) => new Set(g.filter(Boolean).map((x) => elOf(cat, x))).size / 5,
   friends: (cat, g) => {
     const n = {};
@@ -88,7 +96,7 @@ const PROGRESS = {
       if (!x) return;
       for (const j of adjacent(i)) {
         const y = g[j];
-        if (y && elOf(cat, y) === elOf(cat, x)) best = Math.max(best, 0.3 + 0.35 * (x.stage >= 2) + 0.35 * (y.stage >= 2));
+        if (y && elOf(cat, y) === elOf(cat, x)) best = Math.max(best, 0.2 + 0.2 * (x.stage - 1) + 0.2 * (y.stage - 1));
       }
     });
     return best;
@@ -99,7 +107,7 @@ const PROGRESS = {
       if (!x) return;
       for (const j of adjacent(i)) if (j > i && g[j] && defOf(cat, g[j]).origin !== defOf(cat, x).origin) n++;
     });
-    return Math.min(1, n / 3);
+    return Math.min(1, n / 5);
   },
 };
 export const goalProgress = (cat, id, garden) => (GOALS[id].check(cat, garden) ? 1 : (PROGRESS[id]?.(cat, garden) ?? 0));

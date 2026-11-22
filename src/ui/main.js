@@ -3,7 +3,7 @@
 import { buildCatalog, applyAction, pickOrder, autoPay, buyCost, growCost, limitOf, manaTotal, scoreOf, MAX_BUYS, HAND_LIMIT } from '../core/game.js';
 import { wantOf } from '../core/cpu.js';
 import { ELEMENTS, GROWTH } from '../core/schema.js';
-import { GOALS } from '../core/goals.js';
+import { GOALS, goalPointsOf } from '../core/goals.js';
 import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars, glossaryHtml, setExplain } from './describe.js';
 import { GameHost, HostRoom, GuestClient } from '../net/session.js';
 import { openTrystero } from '../net/trystero.js';
@@ -130,7 +130,7 @@ function rulesHtml() {
     <li><b>手入れフェーズ（全員同時）</b>：招いたカード（住人）を庭に置く（2枚まで置かずに持っておける）。カードと同じ色の魔素を乗せて★を育てる（何回でも）。「このラウンドを終える」で、庭のカードが左上から順に開花する。終えるまでは「1つ戻す」でやり直せる。ほかの人がしたことは、ラウンドが終わるまで見えない。</li>
     <li>手入れフェーズで得た魔素は、その場で使える。持てる魔素は10個まで（ラウンドの終わりにあふれた分を捨てる）。育てる魔素は強化で0個まで下がる。</li>
     <li>導きのカードは、★★から摘み方を曲げる（足す・入れ替える）。</li>
-    <li>8ラウンド（短めは6）で終わり。カードの★の点、実り、お題カード（一番乗り5点・あとから3点）の合計で比べる。</li><li>キーワード：${glossaryHtml()}</li>
+    <li>8ラウンド（短めは6）で終わり。カードの★の点、実り、お題カード（満たしたラウンドの順に5・3・1・0点）の合計で比べる。</li><li>キーワード：${glossaryHtml()}</li>
   </ol>`;
 }
 
@@ -293,9 +293,9 @@ function detailHtml() {
 function goalsHtml() { // 反応フェーズ中の取り方は、view がすでに「始まった時＋自分の分」にしてある
   return st.goals.map((g) => {
     const claims = st.claims[g];
-    const first = claims.length ? Math.min(...claims.map((x) => x.round)) : null;
-    const who = claims.map((x) => `${esc(nameOf(x.player))}${x.round === first ? '（5点）' : '（3点）'}`).join('・');
-    return `<div class="goal"><div class="goal-art">${goalArt(g, 40)}</div><div><b>${GOALS[g].name}</b><span>${GOALS[g].text}</span><small>${who || 'まだ誰も'}</small></div></div>`;
+    const who = claims.map((x) => `${esc(nameOf(x.player))}（${goalPointsOf(claims, x.round)}点）`).join('・');
+    const next = goalPointsOf(claims, st.round); // 今満たしたら何点か
+    return `<div class="goal"><div class="goal-art">${goalArt(g, 40)}</div><div><b>${GOALS[g].name}</b><span>${GOALS[g].text}</span><small>${who || 'まだ誰も'}・今なら${next}点</small></div></div>`;
   }).join('');
 }
 

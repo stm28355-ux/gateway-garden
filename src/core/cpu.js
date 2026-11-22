@@ -6,7 +6,7 @@
 //   3. まだ満たしていないお題も、進み具合に応じて少し数える
 // どちらを使うかは、その席の cpu（'normal'・'smart'）で決まる。
 import { ELEMENTS } from './schema.js';
-import { GOALS, goalProgress, FIRST_POINTS, LATER_POINTS } from './goals.js';
+import { GOALS, goalProgress, goalPointsOf } from './goals.js';
 import { GROWTH } from './schema.js';
 import {
   applyMut, autoPay, buyCost, defOf, stageOf, growCost, limitOf, pickOrder, scoreOf, emptyMana, countIn,
@@ -106,7 +106,7 @@ export function valueOf(cat, st, p) {
       for (const g of st.goals) {
         if (st.claims[g].some((x) => x.player === p) || GOALS[g].check(cat, pl.garden)) continue;
         const prog = goalProgress(cat, g, pl.garden);
-        v += o.goalProg * prog * prog * (st.claims[g].length ? LATER_POINTS : FIRST_POINTS) * Math.min(1, left / 2);
+        v += o.goalProg * prog * prog * goalPointsOf(st.claims[g], st.round) * Math.min(1, left / 2);
       }
     }
   }

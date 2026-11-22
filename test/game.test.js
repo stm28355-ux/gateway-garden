@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   applyAction, applyMut, autoPay, canPay, createGame, emptyMana, growCost, limitOf, scoreOf, whoActs, GameError,
 } from '../src/core/game.js';
-import { GOALS } from '../src/core/goals.js';
+import { GOALS, goalPointsOf } from '../src/core/goals.js';
 import { playGame } from '../src/core/autoplay.js';
 import { baseCatalog, byName } from './helpers.js';
 
@@ -177,8 +177,11 @@ test('好きな色を得る・色を変えるは選ぶ。変換は途中で止�
   assert.equal(s.players[0].choice.kind, 'convert');
   s = applyAction(cat, s, { type: 'choose', player: 0, value: { from: 'red', to: 'green' } });
   s = applyAction(cat, s, { type: 'choose', player: 0, value: null });
+  // ビーバーは変換のあと、好きな色を1つ得る（工程8 K3）
+  assert.equal(s.players[0].choice.kind, 'color');
+  s = applyAction(cat, s, { type: 'choose', player: 0, value: 'yellow' });
   assert.equal(s.players[0].status, 'done');
-  assert.deepEqual([s.players[0].mana.red, s.players[0].mana.green, s.players[0].mana.blue], [2, 1, 1]);
+  assert.deepEqual([s.players[0].mana.red, s.players[0].mana.green, s.players[0].mana.blue, s.players[0].mana.yellow], [2, 1, 1, 1]);
 });
 
 test('黄の「貯めて点」：終わりに残った素材の数で点（#1 の直し）', () => {
@@ -237,7 +240,7 @@ test('9マスが埋まるまで置き換えはできない（D15）', () => {
   assert.equal(s.discardPile.length, 1);
 });
 
-test('得点：段階の点・終わりの効果・目標札（一番乗り5点・後から3点）', () => {
+test('得点：段階の点・終わりの効果・目標札（満たしたラウンドの順に 5・3・1・0 点）', () => {
   const st = reactState([[4, '星読みヤギ', 3], [0, '灯りうさぎ', 3], [1, '旗持ちイヌ', 3], [2, '火の粉トカゲ']]);
   st.goals = ['big-tree', 'four-corners', 'lush'];
   st.claims = { 'big-tree': [{ player: 1, round: 1 }, { player: 0, round: 2 }], 'four-corners': [], lush: [] };
@@ -245,7 +248,15 @@ test('得点：段階の点・終わりの効果・目標札（一番乗り5点�
   assert.equal(sc.stage, 2 + 2 + 1); // ヤギ2・うさぎ2・イヌ1（トカゲ段階1は0）
   assert.equal(sc.end, 3 + 3 + 2); // ヤギ：中央3＋段階3が3枚（ヤギ・うさぎ・イヌ）、イヌ：隣の赤（トカゲ）1枚×2
   assert.equal(sc.goals, 3);
-  assert.ok(GOALS['big-tree'].check(cat, st.players[0].garden));
+  assert.ok(!GOALS['big-tree'].check(cat, st.players[0].garden), '★★★3枚では足りない（工程8 G3：4枚から）');
+});
+
+test('お題の点の傾斜：満たしたラウンドの順に 5・3・1・0、同じラウンドは同じ点（工程8 G0）', () => {
+  const claims = [{ player: 0, round: 2 }, { player: 1, round: 2 }, { player: 2, round: 4 }, { player: 3, round: 5 }];
+  assert.deepEqual(claims.map((c) => goalPointsOf(claims, c.round)), [5, 5, 3, 1]);
+  assert.equal(goalPointsOf(claims, 7), 0, '4番目のラウンドより後は0点');
+  assert.equal(goalPointsOf([], 3), 5, 'まだ誰もいなければ5点');
+  assert.equal(goalPointsOf(claims, 3), 3, '途中のラウンドに満たしたら、それより前のラウンドの数で決まる');
 });
 
 test('好きなときに使う効果：1ラウンド1回、札を動かす（#2）', () => {

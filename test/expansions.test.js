@@ -40,7 +40,9 @@ test('目標札「世界の交わり」は拡張を混ぜたときだけ出る',
   g[4] = { uid: 1, id: ext, stage: 1 };
   g[1] = { uid: 2, id: base[0], stage: 1 };
   g[3] = { uid: 3, id: base[1], stage: 1 };
-  assert.ok(!GOALS['world-cross'].check(cat, g), '2か所ではまだ');
   g[5] = { uid: 4, id: base[2], stage: 1 };
-  assert.ok(GOALS['world-cross'].check(cat, g), '3か所で満たす');
+  g[7] = { uid: 5, id: base[3], stage: 1 };
+  assert.ok(!GOALS['world-cross'].check(cat, g), '4か所ではまだ（工程8 G8：5か所から）');
+  g[0] = { uid: 6, id: ext, stage: 1 }; // 左上の拡張が、上と左の基本の札と隣り合う
+  assert.ok(GOALS['world-cross'].check(cat, g), '6か所で満たす');
 });

@@ -95,36 +95,36 @@
 
   { "id": "base-016", "name": "鏡のネコ", "element": "white", "role": "convert", "cost": { "white": 1, "any": 1 }, "growth": "early",
     "stages": [
-      { "effects": [{ "when": "activate", "do": "convert", "to": "white", "amount": 1 }] },
-      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 1 }] },
-      { "points": 2, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 2 }] } ] },
+      { "effects": [{ "when": "activate", "do": "convert", "to": "white", "amount": 1 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 }] },
+      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 1 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 }] },
+      { "points": 2, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 2 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 }] } ] },
   { "id": "base-017", "name": "るつぼガニ", "element": "red", "role": "convert", "cost": { "red": 2 }, "growth": "flat",
     "stages": [
-      { "effects": [{ "when": "activate", "do": "convert", "to": "red", "amount": 1 }] },
-      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "red", "amount": 2 }] },
+      { "effects": [{ "when": "activate", "do": "convert", "to": "red", "amount": 2 }] },
+      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "red", "amount": 3 }] },
       { "points": 3, "effects": [
-        { "when": "activate", "do": "convert", "to": "red", "amount": 2 },
+        { "when": "activate", "do": "convert", "to": "red", "amount": 3 },
         { "when": "activate", "do": "gain", "color": "red", "amount": 1 } ] } ] },
   { "id": "base-018", "name": "水車のビーバー", "element": "blue", "role": "convert", "cost": { "blue": 3 }, "growth": "late",
     "stages": [
-      { "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 1 }] },
-      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 2 }] },
-      { "points": 4, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 3 }] } ] },
+      { "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 1 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 }] },
+      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 2 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 }] },
+      { "points": 4, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 3 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 }] } ] },
   { "id": "base-019", "name": "発酵キノコ", "element": "green", "role": "convert", "cost": { "green": 2 }, "growth": "flat",
     "stages": [
-      { "effects": [{ "when": "activate", "do": "convert", "to": "green", "amount": 1 }] },
-      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "green", "amount": 2 }] },
+      { "effects": [{ "when": "activate", "do": "convert", "to": "green", "amount": 2 }] },
+      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "green", "amount": 3 }] },
       { "points": 2, "effects": [
-        { "when": "activate", "do": "convert", "to": "green", "amount": 2 },
+        { "when": "activate", "do": "convert", "to": "green", "amount": 3 },
         { "when": "end", "do": "score", "amount": 1, "per": { "area": "adjacent", "filter": { "element": "green" } } } ] } ] },
   { "id": "base-020", "name": "両替カラス", "element": "yellow", "role": "convert", "cost": { "yellow": 2 }, "growth": "early",
     "stages": [
-      { "effects": [{ "when": "activate", "do": "convert", "to": "yellow", "amount": 1 }] },
+      { "effects": [{ "when": "activate", "do": "convert", "to": "yellow", "amount": 1 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 }] },
       { "points": 1, "effects": [
-        { "when": "activate", "do": "convert", "to": "any", "amount": 1 },
+        { "when": "activate", "do": "convert", "to": "any", "amount": 1 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 },
         { "when": "end", "do": "hoard", "every": 4, "amount": 1 } ] },
       { "points": 2, "effects": [
-        { "when": "activate", "do": "convert", "to": "any", "amount": 2 },
+        { "when": "activate", "do": "convert", "to": "any", "amount": 2 }, { "when": "activate", "do": "gain", "color": "any", "amount": 1 },
         { "when": "end", "do": "hoard", "every": 3, "amount": 1 } ] } ] },
 
   { "id": "base-021", "name": "星読みヤギ", "element": "white", "role": "score", "cost": { "white": 2, "any": 1 }, "growth": "late",
@@ -148,7 +148,7 @@
     "stages": [
       { "effects": [] },
       { "effects": [{ "when": "end", "do": "score", "amount": 1, "per": { "area": "garden", "filter": { "minStage": 3 } } }] },
-      { "points": 2, "effects": [{ "when": "end", "do": "score", "amount": 2, "per": { "area": "garden", "filter": { "minStage": 3 } } }] } ] },
+      { "points": 2, "effects": [{ "when": "end", "do": "score", "amount": 1, "per": { "area": "garden", "filter": { "minStage": 3 } } }] } ] },
   { "id": "base-025", "name": "宝探しネズミ", "element": "yellow", "role": "score", "cost": { "yellow": 2 }, "growth": "early",
     "stages": [
       { "effects": [] },

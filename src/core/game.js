@@ -4,7 +4,7 @@
 import { ELEMENTS, GROWTH } from './schema.js';
 import { randInt, shuffle } from './rng.js';
 import { CELLS, areaCells, position } from './garden.js';
-import { GOALS, goalPool, FIRST_POINTS, LATER_POINTS } from './goals.js';
+import { GOALS, goalPool, goalPointsOf } from './goals.js';
 
 export const BASE_LIMIT = 10;  // D4
 export const MARKET_SIZE = 6;  // D7
@@ -179,8 +179,7 @@ export function scoreOf(cat, st, p) {
     const list = st.claims[g];
     const mine = list.find((x) => x.player === p);
     if (!mine) continue;
-    const first = Math.min(...list.map((x) => x.round));
-    goals += mine.round === first ? FIRST_POINTS : LATER_POINTS;
+    goals += goalPointsOf(list, mine.round);
   }
   return { stage, end, goals, bonus: pl.bonus, total: stage + end + goals + pl.bonus, stage3 };
 }
