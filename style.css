@@ -18,6 +18,12 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--muted); font-weight: 600;
 .setup form { display: grid; gap: 10px; background: var(--panel); padding: 16px; border: 1px solid var(--line); border-radius: 10px; }
 .setup fieldset { border: 1px solid var(--line); border-radius: 8px; }
 .rules { margin-top: 16px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.tab.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.code { font-family: ui-monospace, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 0 8px; }
+.seats li { margin: 4px 0; }
+.small { font-size: 12px; }
+.banner { margin: 8px 16px; padding: 8px 12px; background: #fbe9e4; border-radius: 8px; }
 
 .bar { display: flex; gap: 16px; align-items: center; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .bar .spacer { flex: 1; }

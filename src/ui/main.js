@@ -1,30 +1,51 @@
-// 試作画面（フェーズ4）：1人＋CPU。ルールの処理は src/core、ここは描くことと操作を渡すことだけ。
-import {
-  buildCatalog, createGame, applyAction, whoActs, pickOrder, autoPay, buyCost, buysOf, growCost, limitOf, manaTotal, scoreOf, GameError,
-  MAX_BUYS, HAND_LIMIT,
-} from '../core/game.js';
-import { cpuAction, wantOf } from '../core/cpu.js';
-import { ELEMENTS } from '../core/schema.js';
+// 画面：1人で遊ぶ（CPU と）・部屋を作る・部屋に入る。ルールの処理は src/core、ゲームの相手は src/net/session.js。
+// 描くのは「自分から見た盤面」（session.view()）だけ。1人でも通信でも同じ描き方。
+import { buildCatalog, applyAction, pickOrder, autoPay, buyCost, growCost, limitOf, manaTotal, scoreOf, MAX_BUYS, HAND_LIMIT } from '../core/game.js';
+import { wantOf } from '../core/cpu.js';
+import { ELEMENTS, GROWTH } from '../core/schema.js';
 import { GOALS } from '../core/goals.js';
 import { stageLines, costText, COLOR_JA, ROLE_JA, GROWTH_JA } from './describe.js';
-import { GROWTH } from '../core/schema.js';
+import { GameHost, HostRoom, GuestClient } from '../net/session.js';
+import { openTrystero } from '../net/trystero.js';
+import { APP_VERSION } from '../version.js';
 
 const app = document.getElementById('app');
-const ME = 0;
+let ME = 0;
 let expansions = [];
 let cat = null;
-let st = null;
+let st = null;        // 自分から見た盤面
+let session = null;   // ゲームの相手（GameHost か GuestClient）
+let room = null;      // 通信の部屋（HostRoom か GuestClient）
+let screen = 'setup'; // setup → lobby → game
+let mode = 'solo';    // solo・host・join
+let busy = '';
 let ui = {};
-let log = [];
-let record = null;
 let hover = null;
 let error = '';
-let cpuTimer = null;
 
 const freshUi = () => ({ bundle: null, markets: [], anyPick: {}, swapCell: null, give: null, swap: null, pending: null, cell: null, convFrom: null, moveFrom: null, discard: {} });
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const nameOf = (p) => st.players[p].name;
 const defById = (id) => cat.cards[id];
+const params = new URLSearchParams(location.search);
+const STRATEGY = params.get('net') ?? 'nostr'; // つながりにくいときは ?net=torrent や ?net=mqtt を試す
+
+function stored(key, value) {
+  try {
+    if (value === undefined) return localStorage.getItem(key);
+    localStorage.setItem(key, value);
+  } catch { /* 保存できない環境でも遊べる */ }
+  return null;
+}
+function myToken() { // 抜けて戻ったとき、同じ席に戻るための印
+  let t = stored('gg-token');
+  if (!t) { t = Math.random().toString(36).slice(2) + Date.now().toString(36); stored('gg-token', t); }
+  return t;
+}
+function randomCode() {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
 
 // ---- 読み込みと始め方 -------------------------------------------------------
 
@@ -34,138 +55,157 @@ async function loadExpansions() {
   return Promise.all(ids.map(async (id) => ({ meta: await get(`expansions/${id}/expansion.json`), cards: await get(`expansions/${id}/cards.json`) })));
 }
 
+const makeCatalog = (ids) => buildCatalog(expansions.filter((e) => ids.includes(e.meta.id)));
+const chosenExpansions = () => expansions.filter((e) => e.meta.id === 'base' || document.querySelector(`input[name="exp"][value="${e.meta.id}"]`)?.checked).map((e) => e.meta.id);
+
 function renderSetup() {
   const exps = expansions.map((e) => `<label class="check"><input type="checkbox" name="exp" value="${e.meta.id}" checked ${e.meta.id === 'base' ? 'disabled' : ''}> ${esc(e.meta.name)}（${e.cards.length}種類・版 ${e.meta.version}）</label>`).join('');
+  const name = esc(stored('gg-name') ?? 'あなた');
+  const tab = (m, label) => `<button type="button" class="tab ${mode === m ? 'on' : ''}" data-mode="${m}">${label}</button>`;
+  const rounds = '<label>長さ <select name="rounds"><option value="8" selected>ふつう（8ラウンド）</option><option value="6">短め（6ラウンド）</option></select></label>';
+  let body = '';
+  if (mode === 'solo') {
+    body = `<label>人数 <select name="players"><option>2</option><option selected>3</option><option>4</option></select>（あなた＋CPU）</label>
+      ${rounds}<fieldset><legend>使う札</legend>${exps}</fieldset>
+      <label>種（空なら毎回ちがう） <input name="seed" inputmode="numeric" placeholder="例：123"></label>
+      <button class="primary" type="submit">はじめる</button>`;
+  } else if (mode === 'host') {
+    body = `<label>人数 <select name="players"><option>2</option><option selected>3</option><option>4</option></select>（人が足りない席は CPU）</label>
+      ${rounds}<fieldset><legend>使う札</legend>${exps}</fieldset>
+      <label>合言葉 <input name="code" value="${randomCode()}" maxlength="24" required>（入る人に伝える）</label>
+      <button class="primary" type="submit">部屋を作る</button>`;
+  } else {
+    body = `<label>合言葉 <input name="code" maxlength="24" required placeholder="部屋を作った人に聞く"></label>
+      <button class="primary" type="submit">部屋に入る</button>`;
+  }
   app.innerHTML = `
   <main class="setup">
     <h1>Gateway Garden</h1>
     <p class="lead">世界をつなぐ庭。共通の場から魔素の束を拾い、別の世界から来た住人を3×3の庭に迎えて育てよう。</p>
+    <div class="tabs">${tab('solo', '1人で遊ぶ（CPU と）')}${tab('host', '部屋を作る（通信）')}${tab('join', '部屋に入る（通信）')}</div>
     <form id="setup">
-      <label>名前 <input name="name" value="あなた" maxlength="12"></label>
-      <label>人数 <select name="players"><option>2</option><option selected>3</option><option>4</option></select>（あなた＋CPU）</label>
-      <label>長さ <select name="rounds"><option value="8" selected>ふつう（8ラウンド）</option><option value="6">短め（6ラウンド）</option></select></label>
-      <fieldset><legend>使う札</legend>${exps}</fieldset>
-      <label>種（空なら毎回ちがう） <input name="seed" inputmode="numeric" placeholder="例：123"></label>
-      <button class="primary" type="submit">はじめる</button>
+      <label>名前 <input name="name" value="${name}" maxlength="12"></label>
+      ${body}
+      ${busy ? `<p class="muted">${esc(busy)}</p>` : ''}
     </form>
+    ${mode !== 'solo' ? '<p class="muted">通信対戦はサーバーなしで、ブラウザ同士を直接つなぎます。同じ合言葉を入れた人が同じ部屋に入ります。</p>' : ''}
     <details class="rules"><summary>遊び方（短く）</summary>${rulesHtml()}</details>
+    <p class="muted small">版 ${APP_VERSION}</p>
   </main>`;
+  for (const b of app.querySelectorAll('[data-mode]')) b.addEventListener('click', () => { mode = b.dataset.mode; renderSetup(); });
   document.getElementById('setup').addEventListener('submit', (ev) => {
     ev.preventDefault();
     const f = new FormData(ev.target);
-    const n = Number(f.get('players'));
-    const seed = f.get('seed') ? Number(f.get('seed')) : Math.floor(Math.random() * 1e9);
-    startGame({ name: f.get('name') || 'あなた', n, rounds: Number(f.get('rounds')), seed });
+    const nm = (f.get('name') || 'あなた').trim();
+    stored('gg-name', nm);
+    if (mode === 'solo') {
+      const seed = f.get('seed') ? Number(f.get('seed')) : Math.floor(Math.random() * 1e9);
+      startSolo({ name: nm, n: Number(f.get('players')), rounds: Number(f.get('rounds')), seed, ids: chosenExpansions() });
+    } else if (mode === 'host') {
+      openRoom({ name: nm, code: f.get('code').trim(), n: Number(f.get('players')), rounds: Number(f.get('rounds')), ids: chosenExpansions() });
+    } else {
+      joinRoom({ name: nm, code: f.get('code').trim() });
+    }
   });
 }
 
 function rulesHtml() {
   return `<ol>
     <li><b>拾うフェーズ（順番に）</b>：場の束を1つ拾う（3個の魔素が手元に入る）。そのあと、手持ちの魔素で場の札を2枚まで取れる（2枚目は値段に任1が足される）。「任」はどの色で払ってもよい。</li>
-    <li><b>反応フェーズ（全員同時）</b>：取った札を庭に置く（2枚まで置かずに持っておける）。札と同じ色の魔素を乗せて段階を上げる（何回でも）。「このラウンドを終える」で、庭の札が左上から順に発動する。終えるまでは「1つ戻す」でやり直せる。</li>
+    <li><b>反応フェーズ（全員同時）</b>：取った札を庭に置く（2枚まで置かずに持っておける）。札と同じ色の魔素を乗せて段階を上げる（何回でも）。「このラウンドを終える」で、庭の札が左上から順に発動する。終えるまでは「1つ戻す」でやり直せる。ほかの人がしたことは、ラウンドが終わるまで見えない。</li>
     <li>反応フェーズで得た魔素は、その場で使える。持てる魔素は10個まで（ラウンドの終わりにあふれた分を捨てる）。育てる値段は強化で0個まで下がる。</li>
     <li>導きの札は、段階2から拾い方を曲げる（足す・入れ替える）。</li>
-    <li>${'8'}ラウンド（短めは6）で終わり。札の段階の点、終わりの効果、目標札（一番乗り5点・あとから3点）の合計で比べる。</li>
+    <li>8ラウンド（短めは6）で終わり。札の段階の点、終わりの効果、目標札（一番乗り5点・あとから3点）の合計で比べる。</li>
   </ol>`;
 }
 
-function startGame({ name, n, rounds, seed }) {
-  cat = buildCatalog(expansions.filter((e) => e.meta.id === 'base' || document.querySelector(`input[value="${e.meta.id}"]`)?.checked));
-  const players = [{ name }, ...Array.from({ length: n - 1 }, (_, i) => ({ name: `CPU${i + 1}`, cpu: 'normal' }))];
-  st = createGame(cat, { players, rounds, seed });
-  record = { game: 'gateway-garden', seed, rounds, players: players.map((p) => p.name), versions: cat.versions, start: Date.now(), actions: [], roundTimes: [] };
-  log = [`ゲーム開始（種 ${seed}）。目標札：${st.goals.map((g) => GOALS[g].name).join('・')}`];
+function attach(sess) {
+  session = sess;
+  screen = 'game';
   ui = freshUi();
   render();
-  schedule();
+}
+
+function startSolo({ name, n, rounds, seed, ids }) {
+  cat = makeCatalog(ids);
+  const players = [{ name }, ...Array.from({ length: n - 1 }, (_, i) => ({ name: `CPU${i + 1}`, cpu: 'normal' }))];
+  const game = new GameHost(cat, { players, rounds, seed });
+  game.onChange(render);
+  attach(game);
+  game.changed();
+}
+
+async function openRoom({ name, code, n, rounds, ids }) {
+  busy = 'つないでいます…';
+  renderSetup();
+  try {
+    const net = await openTrystero(code, { strategy: STRATEGY });
+    const versions = Object.fromEntries(expansions.filter((e) => ids.includes(e.meta.id)).map((e) => [e.meta.id, e.meta.version]));
+    room = new HostRoom(net, { name, count: n, rounds, expansions: ids, versions, makeCatalog });
+    room.code = code;
+    room.onChange(render);
+    busy = '';
+    screen = 'lobby';
+    render();
+  } catch (e) {
+    busy = `つなげませんでした（${e.message}）`;
+    renderSetup();
+  }
+}
+
+async function joinRoom({ name, code }) {
+  busy = 'つないでいます…';
+  renderSetup();
+  try {
+    const net = await openTrystero(code, { strategy: STRATEGY });
+    const guest = new GuestClient(net, { name, token: myToken() });
+    guest.code = code;
+    room = guest;
+    guest.onChange(() => {
+      const info = guest.lobbyInfo;
+      if (info && !guest.problem) {
+        const bad = info.expansions.filter((id) => expansions.find((e) => e.meta.id === id)?.meta.version !== info.versions[id]);
+        if (bad.length) guest.problem = `札の版がホストと違います（${bad.join('・')}）。ページを読み込み直してください。`;
+        else if (!cat || cat.forRoom !== code) { cat = makeCatalog(info.expansions); cat.forRoom = code; }
+      }
+      if (guest.st && screen !== 'game' && !guest.problem) attach(guest);
+      else render();
+    });
+    busy = '';
+    screen = 'lobby';
+    render();
+  } catch (e) {
+    busy = `つなげませんでした（${e.message}）`;
+    renderSetup();
+  }
+}
+
+function renderLobby() {
+  const info = room instanceof HostRoom ? room.lobby() : room.lobbyInfo;
+  const isHost = room instanceof HostRoom;
+  const seats = info ? Array.from({ length: info.count }, (_, i) => info.seats[i]?.name ?? null) : [];
+  app.innerHTML = `
+  <main class="setup">
+    <h1>部屋：<span class="code">${esc(room.code)}</span></h1>
+    ${room.problem ? `<p class="error">${esc(room.problem)}</p>` : ''}
+    ${info ? `<p>${info.count}人・${info.rounds}ラウンド・札：${info.expansions.join('・')}</p>
+      <ol class="seats">${seats.map((s, i) => `<li>${s ? esc(s) : '<span class="muted">（空き → 始めると CPU）</span>'}${i === 0 ? '（ホスト）' : ''}</li>`).join('')}</ol>`
+    : '<p class="muted">ホストを探しています…（ホストが部屋を作っていないと見つかりません）</p>'}
+    ${isHost ? `<p class="muted">入る人に合言葉「${esc(room.code)}」を伝えてください。全員そろったら始めます。</p>
+      <button class="primary" data-act="lobby-start">はじめる</button>`
+    : (info ? '<p class="muted">ホストが始めるのを待っています…</p>' : '')}
+    <p><button data-act="lobby-leave">やめる</button></p>
+  </main>`;
 }
 
 // ---- 操作を進める -----------------------------------------------------------
 
-function describe(before, a) {
-  const who = before.players[a.player].name;
-  const card = (c) => `「${defById(c.id).name}」`;
-  switch (a.type) {
-    case 'draft': return `${who}：始まりの札${card(before.market[a.market])}を取った`;
-    case 'pick': {
-      const b = before.bundles[a.bundle].map((c) => COLOR_JA[c]).join('');
-      const bends = a.bends?.length ? `（${a.bends.map((x) => (x.kind === 'swap' ? '入れ替え' : '足す')).join('・')}）` : '';
-      const got = buysOf(a).map((x) => card(before.market[x.market])).join('と');
-      return `${who}：束${a.bundle + 1}（${b}）を拾った${bends}${got ? `、${got}を取った` : ''}`;
-    }
-    case 'undo': return `${who}：1つ戻した`;
-    case 'place': return `${who}：${card(before.players[a.player].pending[a.pending])}をマス${a.cell + 1}に置いた`;
-    case 'grow': return `${who}：${card(before.players[a.player].garden[a.cell])}を段階${before.players[a.player].garden[a.cell].stage + 1}に育てた`;
-    case 'use': return `${who}：${card(before.players[a.player].garden[a.cell])}を使った`;
-    case 'done': return `${who}：このラウンドを終えた`;
-    default: return null;
-  }
-}
-
-// 反応フェーズは全員同時なので、ほかの人がしたことはラウンドが終わるまで見せない（後出しを防ぐ）。
-// 始まった時の盤面を reactView に取っておき、ほかの人の欄と目標札はそれで描く。
-let reactView = null;
-let hiddenLog = [];
-
-function apply(a) {
-  const before = st;
-  st = applyAction(cat, st, a);
-  record.actions.push({ t: Date.now() - record.start, a });
-  const line = describe(before, a);
-  if (line) {
-    if (before.phase === 'react' && a.player !== ME && a.type !== 'done') hiddenLog.push(line);
-    else log.push(line);
-  }
-  if (before.phase !== 'react' && st.phase === 'react') {
-    reactView = { players: structuredClone(st.players), claims: structuredClone(st.claims) };
-    hiddenLog = [];
-  }
-  if (st.round !== before.round || (st.phase === 'end' && before.phase !== 'end')) {
-    if (hiddenLog.length) log.push('（反応フェーズでほかの人がしたこと）', ...hiddenLog);
-    hiddenLog = [];
-    reactView = null;
-    record.roundTimes.push(Date.now() - record.start);
-    for (const g of st.goals) {
-      for (const c of st.claims[g]) {
-        if (!before.claims[g].some((x) => x.player === c.player)) log.push(`${nameOf(c.player)}：目標札「${GOALS[g].name}」を満たした`);
-      }
-    }
-    if (st.phase !== 'end') log.push(`―― ラウンド ${st.round} ――`);
-  }
-}
-
 function act(a) {
-  error = '';
-  try {
-    apply(a);
-    if (a.player === ME && !['choose'].includes(a.type)) ui = freshUi();
-    if (a.type === 'choose') { ui.convFrom = null; ui.moveFrom = null; ui.discard = {}; }
-  } catch (e) {
-    if (!(e instanceof GameError)) throw e;
-    error = e.message;
-  }
+  error = session.act(a) ?? '';
+  if (!error && a.player === ME && a.type !== 'choose') ui = freshUi();
+  if (a.type === 'choose') { ui.convFrom = null; ui.moveFrom = null; ui.discard = {}; }
   render();
-  schedule();
 }
-
-function schedule() {
-  clearTimeout(cpuTimer);
-  if (!st || st.phase === 'end') return;
-  const cpus = whoActs(st).filter((p) => st.players[p].cpu);
-  if (!cpus.length) return;
-  if (st.phase === 'react') {
-    cpuTimer = setTimeout(() => {
-      for (const p of cpus) {
-        for (let k = 0; k < 300 && st.phase === 'react' && st.players[p].status !== 'done'; k++) apply(cpuAction(cat, st, p));
-      }
-      render();
-      schedule();
-    }, 350);
-  } else {
-    cpuTimer = setTimeout(() => act(cpuAction(cat, st, cpus[0])), 700);
-  }
-}
-
 // ---- 描く部品 ---------------------------------------------------------------
 
 const manaDot = (c, extra = '') => `<span class="dot ${c}" ${extra}></span>`;
@@ -199,16 +239,9 @@ function detailHtml() {
   </div>`;
 }
 
-// 反応フェーズ中は、始まった時の取り方＋自分の分だけを見せる
-function claimsShown(g) {
-  if (!reactView) return st.claims[g];
-  const base = reactView.claims[g];
-  return [...base, ...st.claims[g].filter((x) => x.player === ME && !base.some((y) => y.player === ME))];
-}
-
-function goalsHtml() {
+function goalsHtml() { // 反応フェーズ中の取り方は、view がすでに「始まった時＋自分の分」にしてある
   return st.goals.map((g) => {
-    const claims = claimsShown(g);
+    const claims = st.claims[g];
     const first = claims.length ? Math.min(...claims.map((x) => x.round)) : null;
     const who = claims.map((x) => `${esc(nameOf(x.player))}${x.round === first ? '（5点）' : '（3点）'}`).join('・');
     return `<div class="goal"><b>${GOALS[g].name}</b><span>${GOALS[g].text}</span><small>${who || 'まだ誰も'}</small></div>`;
@@ -284,10 +317,8 @@ function marketHtml() {
   }).join('');
 }
 
-const viewOf = (p) => (p !== ME && reactView ? reactView.players[p] : st.players[p]);
-
 function gardenHtml(p, mini = false) {
-  const pl = viewOf(p);
+  const pl = st.players[p];
   const ch = p === ME ? pl.choice : null;
   return `<div class="garden ${mini ? 'mini' : ''}">${pl.garden.map((x, i) => {
     let cls = '';
@@ -391,11 +422,11 @@ function choicePanel(pl) {
 }
 
 function opponentsHtml() {
-  return st.players.filter((p) => p.index !== ME).map((live) => {
-    const pl = viewOf(live.index);
-    const s = scoreOf(cat, reactView ? { ...st, players: reactView.players, claims: reactView.claims } : st, pl.index);
-    const status = st.phase === 'react' ? (live.status === 'done' ? '終えた' : '考え中') : '';
-    return `<div class="opp"><div class="opp-head"><b>${esc(pl.name)}</b><span>${s.total}点 ${status}</span></div>
+  return st.players.filter((p) => p.index !== ME).map((pl) => { // 反応フェーズ中は、view が始まった時のまま見せる
+    const s = scoreOf(cat, st, pl.index);
+    const status = st.phase === 'react' ? (pl.status === 'done' ? '終えた' : '考え中') : '';
+    const who = pl.away ? '（抜けた・CPU が代わり）' : (pl.cpu ? '（CPU）' : '');
+    return `<div class="opp"><div class="opp-head"><b>${esc(pl.name)}</b><small class="muted">${who}</small><span>${s.total}点 ${status}</span></div>
       <div class="mana">${manaRow(pl.mana)}${pl.pending.length ? `<span class="muted">手元${pl.pending.length}枚</span>` : ''}</div>${gardenHtml(pl.index, true)}</div>`;
   }).join('');
 }
@@ -417,29 +448,37 @@ function phaseName() {
 
 function endHtml() {
   if (st.phase !== 'end') return '';
-  const mins = ((record.roundTimes.at(-1) ?? 0) / 60000).toFixed(1);
+  const mins = ((session.elapsed() ?? 0) / 60000).toFixed(1);
   const rows = [...st.result].sort((a, b) => a.rank - b.rank).map((r) => `<tr><td>${r.rank}位</td><td>${esc(nameOf(r.player))}</td><td>${r.stage}</td><td>${r.end}</td><td>${r.goals}</td><td><b>${r.total}</b></td><td>${r.stage3}</td><td>${st.players[r.player].discarded}</td></tr>`).join('');
   return `<div class="overlay"><div class="end">
     <h2>結果</h2>
     <table><tr><th></th><th>名前</th><th>段階の点</th><th>終わりの効果</th><th>目標札</th><th>合計</th><th>段階3</th><th>捨てた魔素</th></tr>${rows}</table>
     <p>かかった時間：${mins} 分（${st.rounds}ラウンド）</p>
-    <p class="muted">「記録をコピー」で、このゲームの操作と時間を文字にできます。チャットに貼ると、同じゲームをそのまま再現して調べられます。</p>
-    <button data-act="copy">記録をコピー</button> <button class="primary" data-act="again">もう一度</button>
+    ${session.record ? '<p class="muted">「記録をコピー」で、このゲームの操作と時間を文字にできます。チャットに貼ると、同じゲームをそのまま再現して調べられます。</p><button data-act="copy">記録をコピー</button>' : '<p class="muted">記録は部屋を作った人がコピーできます。</p>'}
+    <button class="primary" data-act="again">最初の画面へ</button>
   </div></div>`;
 }
 
 function render() {
-  if (!st) return renderSetup();
+  if (screen === 'setup') return renderSetup();
+  if (screen === 'lobby') return renderLobby();
+  st = session.view();
+  ME = session.me;
+  if (!st) return renderLobby();
   const pl = st.players[ME];
   const me = scoreOf(cat, st, ME);
+  const lost = session.problem ? `<p class="error banner">${esc(session.problem)}</p>` : '';
+  const shownError = error || session.error || '';
   app.innerHTML = `
   <header class="bar">
     <b>Gateway Garden</b>
+    ${room ? `<span class="muted">部屋 ${esc(room.code)}</span>` : ''}
     <span>ラウンド ${st.round} / ${st.rounds}・${phaseName()}</span>
     ${orderHtml()}
     <span class="spacer"></span>
-    <button data-act="copy">記録をコピー</button>
+    ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
   </header>
+  ${lost}
   <section class="board">
     <div class="col-left">
       <h2>目標札</h2><div class="goals">${goalsHtml()}</div>
@@ -450,12 +489,12 @@ function render() {
       <div class="me-head"><h2>${esc(pl.name)} の庭</h2><span>${me.total}点（段階${me.stage}・終わり${me.end}・目標${me.goals}）</span></div>
       <div class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></div>
       ${gardenHtml(ME)}
-      <div class="panel">${error ? `<p class="error">${esc(error)}</p>` : ''}${actionPanel()}</div>
+      <div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div>
     </div>
     <div class="col-right">
       <div class="detail-box">${detailHtml()}</div>
       <h2>ほかの人</h2><div class="opps">${opponentsHtml()}</div>
-      <h2>できごと</h2><ol class="log" reversed>${log.slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ol>
+      <h2>できごと</h2><ol class="log" reversed>${session.log().slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ol>
     </div>
   </section>
   ${endHtml()}`;
@@ -473,18 +512,35 @@ app.addEventListener('mouseover', (ev) => {
   if (box) box.innerHTML = detailHtml();
 });
 
+function backToSetup() {
+  room?.net?.leave?.();
+  clearTimeout(session?.timer);
+  session = null;
+  room = null;
+  st = null;
+  screen = 'setup';
+  render();
+}
+
 app.addEventListener('click', async (ev) => {
   const el = ev.target.closest('[data-act]');
-  if (!el || !st) return;
+  if (!el) return;
   const d = el.dataset;
+  if (d.act === 'lobby-leave' || d.act === 'again') return backToSetup();
+  if (d.act === 'lobby-start') {
+    cat = room.makeCatalog(room.settings.expansions);
+    const game = room.start(Math.floor(Math.random() * 1e9));
+    game.onChange(render);
+    attach(game);
+    return;
+  }
+  if (!st || screen !== 'game') return;
   const pl = st.players[ME];
   const n = (k) => Number(d[k]);
   switch (d.act) {
     case 'copy':
-      await navigator.clipboard.writeText(JSON.stringify(record));
-      el.textContent = 'コピーしました';
+      try { await navigator.clipboard.writeText(JSON.stringify(session.record)); el.textContent = 'コピーしました'; } catch { el.textContent = 'コピーできませんでした'; }
       return;
-    case 'again': st = null; render(); return;
     case 'market':
       if (myDraftTurn()) return act({ type: 'draft', player: ME, market: n('i') });
       if (myPickTurn()) {

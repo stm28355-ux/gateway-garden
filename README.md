@@ -9,7 +9,11 @@
 
 ## 遊ぶ
 
-https://stm28355-ux.github.io/gateway-garden/ （試作：1人＋CPU）。通信対戦はサーバーなしで、ブラウザ同士を [Trystero](https://github.com/dmotz/trystero) でつなぐ予定（フェーズ5）。部屋の合言葉を共有して入る。
+https://stm28355-ux.github.io/gateway-garden/
+
+- **1人で遊ぶ**：あなた＋CPU（2〜4人）。
+- **通信対戦**：1人が「部屋を作る」で合言葉を決め、ほかの人は「部屋に入る」で同じ合言葉を入れる。人が足りない席は CPU。サーバーなしで、ブラウザ同士を [Trystero](https://github.com/dmotz/trystero) でつなぐ。つながりにくいときは URL の後ろに `?net=torrent`（または `?net=mqtt`）を付けて、全員同じにする。
+- 途中で抜けた人の席は CPU が代わりに遊ぶ。同じブラウザで同じ合言葉に入り直すと戻れる。
 
 ## 開発
 
