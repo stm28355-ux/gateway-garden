@@ -1,12 +1,25 @@
 // CPU「ふつう」（D17）：その場で一番得な手を選ぶ。先は読まず、拾う手は「拾ってからこのラウンドの庭をどう触るか」まで試して比べる。
-// 自動対戦で札の強さを測る基準にも使う。好きなときに使う効果（use）は、育て終わった後に良くなるなら使う（#2）。
+// 好きなときに使う効果（use）は、育て終わった後に良くなるなら使う（#2）。
+// CPU「かしこい」（工程8 Q1）：ふつうと同じ形で、見積もりを3つ直したもの。自動対戦で札の強さを測る基準にする（後の「つよい」の土台）。
+//   1. 変換を「余った色を要る色に変える力」として高く見る（ふつうは 0.3、かしこいは 0.8）。要らない色からなら変える
+//   2. （試したが外した）育ちきる見込みを札ごとに出す reach：入れると弱くなった（2人戦で 56% → 52%）。晩成が育たないのは札の弱さと見る
+//   3. まだ満たしていないお題も、進み具合に応じて少し数える
+// どちらを使うかは、その席の cpu（'normal'・'smart'）で決まる。
 import { ELEMENTS } from './schema.js';
-import { GOALS } from './goals.js';
+import { GOALS, goalProgress, FIRST_POINTS, LATER_POINTS } from './goals.js';
+import { GROWTH } from './schema.js';
 import {
   applyMut, autoPay, buyCost, defOf, stageOf, growCost, limitOf, pickOrder, scoreOf, emptyMana, countIn,
 } from './game.js';
 
 const W = { prod: 0.45, mana: 0.5, spare: 0.15, growth: 0.6, goal: 4 }; // 評価の重み（調整で直す）
+const PROFILES = {
+  normal: { smart: false, convert: 0.3 },
+  smart: { smart: true, convert: 0.8, goalProg: 0.6, incomeRate: 0.6, reach: false },
+};
+// 重みを試すとき用：環境変数 GG_SMART='{"convert":0.5}' で上書き（ブラウザでは使わない）
+if (typeof process !== 'undefined' && process.env?.GG_SMART) Object.assign(PROFILES.smart, JSON.parse(process.env.GG_SMART));
+const profileOf = (st, p) => PROFILES[st.players[p].cpu] ?? PROFILES.normal;
 
 const clone = (x) => structuredClone(x);
 const light = (st) => clone({ ...st, deck: [], discardPile: [] }); // 試すときは山を持たない
@@ -22,7 +35,7 @@ export function wantOf(cat, pl) {
 }
 
 // 毎ラウンドの「生む力」のおおよそ（素材の数で数える）
-function prodOf(cat, pl) {
+function prodOf(cat, pl, o = PROFILES.normal) {
   let v = 0;
   pl.garden.forEach((inst, cell) => {
     if (!inst) return;
@@ -30,7 +43,7 @@ function prodOf(cat, pl) {
       const mult = e.per ? countIn(cat, pl, cell, e.per) : 1;
       const n = (e.amount ?? 1) * mult;
       if (e.when === 'activate' && e.do === 'gain') v += e.color === 'any' ? n * 1.2 : n;
-      else if (e.when === 'activate' && e.do === 'convert') v += 0.3 * n;
+      else if (e.when === 'activate' && e.do === 'convert') v += o.convert * n;
       else if (e.when === 'activate' && e.do === 'stageUp') v += 1.5 * n;
       else if (e.when === 'pick' && e.do === 'bend') v += e.kind === 'add' ? 0.7 : 0.5;
       else if (e.when === 'always' && e.do === 'discount') v += 0.4 * n;
@@ -41,8 +54,24 @@ function prodOf(cat, pl) {
 }
 
 // 盤面の値打ち。最後のラウンドでは点だけを見る。
+// 色ごとの、1ラウンドに入ってくるおおよその数（摘む分 1 ＋ 庭の開花で得る分）
+function incomeOf(cat, pl) {
+  const inc = Object.fromEntries(ELEMENTS.map((c) => [c, 1]));
+  pl.garden.forEach((inst, cell) => {
+    if (!inst) return;
+    for (const e of stageOf(cat, inst).effects) {
+      if (e.when !== 'activate' || e.do !== 'gain') continue;
+      const n = (e.amount ?? 1) * (e.per ? countIn(cat, pl, cell, e.per) : 1);
+      if (e.color === 'any') for (const c of ELEMENTS) inc[c] += n / 5;
+      else if (inc[e.color] !== undefined) inc[e.color] += n;
+    }
+  });
+  return inc;
+}
+
 export function valueOf(cat, st, p) {
   const pl = st.players[p];
+  const o = profileOf(st, p);
   const left = st.rounds - st.round;
   let v = scoreOf(cat, st, p).total;
   if (left > 0) {
@@ -58,13 +87,27 @@ export function valueOf(cat, st, p) {
     const room = limitOf(cat, pl);
     need = Math.min(need, room);
     rest = Math.min(rest, room - need);
-    v += W.prod * prodOf(cat, pl) * left + W.mana * need + W.spare * rest;
-    // 育てきったときの点の見込み。残りのラウンドが少ないほど割り引く。
-    const reach = Math.min(1, left / 3);
-    for (const inst of pl.garden) {
-      if (!inst || inst.stage >= 3) continue;
+    v += W.prod * prodOf(cat, pl, o) * left + W.mana * need + W.spare * rest;
+    // 育てきったときの点の見込み。ふつうは残りのラウンドが少ないほど割り引く。
+    // かしこいは、あと要る魔素と、その色が入ってくる速さで割り引く（晩成でも間に合うなら数える）
+    const inc = o.smart ? incomeOf(cat, pl) : null;
+    pl.garden.forEach((inst, cell) => {
+      if (!inst || inst.stage >= 3) return;
       const d = defOf(cat, inst);
+      let reach = Math.min(1, left / 3);
+      if (o.smart && o.reach) {
+        const need3 = growCost(cat, pl, cell) + (inst.stage === 1 ? GROWTH[d.growth][1] : 0);
+        reach = Math.min(1, (pl.mana[d.element] + left * inc[d.element] * o.incomeRate) / Math.max(1, need3));
+      }
       v += W.growth * reach * ((d.stages[2].points ?? 0) - (d.stages[inst.stage - 1].points ?? 0));
+    });
+    // かしこいは、まだ満たしていないお題も、進み具合の2乗 × 取れる点 で少し数える
+    if (o.smart) {
+      for (const g of st.goals) {
+        if (st.claims[g].some((x) => x.player === p) || GOALS[g].check(cat, pl.garden)) continue;
+        const prog = goalProgress(cat, g, pl.garden);
+        v += o.goalProg * prog * prog * (st.claims[g].length ? LATER_POINTS : FIRST_POINTS) * Math.min(1, left / 2);
+      }
     }
   }
   for (const g of st.goals) {
@@ -77,6 +120,7 @@ export function valueOf(cat, st, p) {
 
 export function chooseValue(cat, st, p) {
   const pl = st.players[p];
+  const o = profileOf(st, p);
   const ch = pl.choice;
   const want = wantOf(cat, pl);
   const short = (c) => want[c] - pl.mana[c];
@@ -86,7 +130,8 @@ export function chooseValue(cat, st, p) {
     case 'convert': {
       const from = best(ch.from, (c) => -short(c));
       const to = ch.to === 'any' ? best(ELEMENTS.filter((c) => c !== from), short) : ch.to;
-      return short(from) < 0 && short(to) > 0 ? { from, to } : null;
+      // ふつうは余っている色からだけ、かしこいは要らない（足りている）色からでも変える
+      return (o.smart ? short(from) <= 0 : short(from) < 0) && short(to) > 0 ? { from, to } : null;
     }
     case 'stageUp': return best(ch.options, (c) => {
       const inst = pl.garden[c];

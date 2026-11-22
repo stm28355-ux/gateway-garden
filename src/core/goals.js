@@ -62,6 +62,48 @@ export const GOALS = {
   },
 };
 
+// お題までの進み具合（0〜1）。CPU「かしこい」が、まだ満たしていないお題を少し狙うのに使う（工程8 Q1）
+const elOf = (cat, x) => defOf(cat, x).element;
+const PROGRESS = {
+  'same-line': (cat, g) => Math.max(...LINES.map((l) => {
+    const els = l.filter((c) => g[c]).map((c) => elOf(cat, g[c]));
+    return new Set(els).size > 1 ? 0 : els.length / 3;
+  })),
+  'rainbow-line': (cat, g) => Math.max(...LINES.map((l) => {
+    const els = l.filter((c) => g[c]).map((c) => elOf(cat, g[c]));
+    return new Set(els).size < els.length ? 0 : els.length / 3;
+  })),
+  'four-corners': (cat, g) => [0, 2, 4, 6, 8].filter((c) => g[c]).length / 5,
+  'big-tree': (cat, g) => g.filter(Boolean).map((x) => (x.stage - 1) / 2).sort((a, b) => b - a).slice(0, 2).reduce((a, b) => a + b, 0) / 2,
+  lush: (cat, g) => Math.min(1, (g.filter((x) => x && x.stage >= 2).length + 0.3 * g.filter((x) => x && x.stage === 1).length) / 5),
+  'five-colors': (cat, g) => new Set(g.filter(Boolean).map((x) => elOf(cat, x))).size / 5,
+  friends: (cat, g) => {
+    const n = {};
+    for (const x of g) if (x) n[defOf(cat, x).role] = (n[defOf(cat, x).role] ?? 0) + 1;
+    return Math.min(1, Math.max(0, ...Object.values(n)) / 3);
+  },
+  'pair-sprouts': (cat, g) => {
+    let best = g.some(Boolean) ? 0.1 : 0;
+    g.forEach((x, i) => {
+      if (!x) return;
+      for (const j of adjacent(i)) {
+        const y = g[j];
+        if (y && elOf(cat, y) === elOf(cat, x)) best = Math.max(best, 0.3 + 0.35 * (x.stage >= 2) + 0.35 * (y.stage >= 2));
+      }
+    });
+    return best;
+  },
+  'world-cross': (cat, g) => {
+    let n = 0;
+    g.forEach((x, i) => {
+      if (!x) return;
+      for (const j of adjacent(i)) if (j > i && g[j] && defOf(cat, g[j]).origin !== defOf(cat, x).origin) n++;
+    });
+    return Math.min(1, n / 3);
+  },
+};
+export const goalProgress = (cat, id, garden) => (GOALS[id].check(cat, garden) ? 1 : (PROGRESS[id]?.(cat, garden) ?? 0));
+
 export const BASE_GOAL_IDS = Object.keys(GOALS).filter((g) => !GOALS[g].needsOrigins);
 
 // そのゲームで出せる目標札（出身の数で決まる）

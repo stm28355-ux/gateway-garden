@@ -10,6 +10,8 @@ import { GROWTH } from '../src/core/schema.js';
 const args = process.argv.slice(2);
 const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args.splice(i, 2)[1] : null; };
 const out = opt('--out');
+// CPU の強さ：--cpu smart（工程8 Q1 の「かしこい」）。はじめは normal
+const cpuLevel = opt('--cpu') ?? 'normal';
 // 試しに育てる値段を変える：--growth "early=1,3;flat=2,3;late=3,4"
 const growthOpt = opt('--growth');
 if (growthOpt) {
@@ -25,7 +27,14 @@ const rounds = Number(args[2] ?? 8);
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 // 使う拡張：--exp base,auto-battler（基本セットは必ず入る）
 const expIds = [...new Set(['base', ...(opt('--exp') ?? 'base').split(',').map((s) => s.trim()).filter(Boolean)])];
-const cat = buildCatalog(expIds.map((id) => ({ meta: read(`../expansions/${id}/expansion.json`), cards: read(`../expansions/${id}/cards.json`) })));
+const exps = expIds.map((id) => ({ meta: read(`../expansions/${id}/expansion.json`), cards: read(`../expansions/${id}/cards.json`) }));
+// 試しの直し：--patch tools/patches/xxx.mjs（札の名前 → 直す関数 の並びを export default）。カードのデータは書き換えずに測る（工程8）
+const patchPath = opt('--patch');
+if (patchPath) {
+  const patch = (await import(new URL(`../${patchPath}`, import.meta.url))).default;
+  for (const e of exps) for (const c of e.cards) patch[c.name]?.(c);
+}
+const cat = buildCatalog(exps);
 
 const COLOR_JA = { white: '白', red: '赤', blue: '青', green: '緑', yellow: '黄' };
 const ROLE_JA = { generate: '生成', guide: '導き', boost: '強化', convert: '変換', score: '得点', chain: '連鎖' };
@@ -45,9 +54,10 @@ function mainOf(cards, key) {
 const lines = [];
 const say = (s = '') => { lines.push(s); console.log(s); };
 
-say(`# 自動対戦の結果（CPU ふつう どうし、${rounds}ラウンド、各人数 ${games} ゲーム）`);
+say(`# 自動対戦の結果（CPU ${cpuLevel === 'smart' ? 'かしこい' : 'ふつう'} どうし、${rounds}ラウンド、各人数 ${games} ゲーム）`);
 say();
-say(`前提：全員 CPU「ふつう」（その場で一番得な手）。使う札：${expIds.map((id) => `${id}（版 ${cat.versions[id]}）`).join('・')}、各札2枚の山。`);
+say(`前提：全員 CPU「${cpuLevel === 'smart' ? 'かしこい' : 'ふつう'}」。使う札：${expIds.map((id) => `${id}（版 ${cat.versions[id]}）`).join('・')}、各札2枚の山。`);
+if (patchPath) say(`試しの直し：${patchPath}`);
 say(`育てる値段：早熟 ${GROWTH.early.join('・')}、平ら ${GROWTH.flat.join('・')}、晩成 ${GROWTH.late.join('・')}`);
 
 const cardStats = {};
@@ -60,7 +70,7 @@ for (const n of counts) {
   for (let g = 0; g < games; g++) {
     const maxMana = Array(n).fill(0);
     const { st, actions } = playGame(cat, {
-      players: n, rounds, seed: 1000 * n + g,
+      players: n, rounds, seed: 1000 * n + g, cpu: cpuLevel,
       onStep: (s) => s.players.forEach((pl, i) => { maxMana[i] = Math.max(maxMana[i], manaTotal(pl.mana)); }),
     });
     steps += actions.filter((a) => a.type !== 'choose').length;
