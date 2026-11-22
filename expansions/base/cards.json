@@ -29,7 +29,7 @@
       { "points": 1, "effects": [{ "when": "activate", "do": "gain", "color": "yellow", "amount": 2 }] },
       { "points": 2, "effects": [
         { "when": "activate", "do": "gain", "color": "yellow", "amount": 2 },
-        { "when": "always", "do": "limit", "amount": 2 } ] } ] },
+        { "when": "end", "do": "hoard", "every": 2, "amount": 1 } ] } ] },
 
   { "id": "base-006", "name": "道しるべフクロウ", "element": "white", "role": "guide", "cost": { "white": 2 }, "growth": "flat",
     "stages": [
@@ -63,7 +63,7 @@
       { "points": 1, "effects": [{ "when": "pick", "do": "bend", "kind": "add" }] },
       { "points": 2, "effects": [
         { "when": "pick", "do": "bend", "kind": "add" },
-        { "when": "always", "do": "limit", "amount": 1 } ] } ] },
+        { "when": "end", "do": "hoard", "every": 3, "amount": 1 } ] } ] },
 
   { "id": "base-011", "name": "庭番カメ", "element": "white", "role": "boost", "cost": { "white": 3 }, "growth": "flat",
     "stages": [
@@ -128,10 +128,10 @@
       { "effects": [{ "when": "activate", "do": "convert", "to": "yellow", "amount": 1 }] },
       { "points": 1, "effects": [
         { "when": "activate", "do": "convert", "to": "any", "amount": 1 },
-        { "when": "always", "do": "limit", "amount": 1 } ] },
+        { "when": "end", "do": "hoard", "every": 4, "amount": 1 } ] },
       { "points": 2, "effects": [
         { "when": "activate", "do": "convert", "to": "any", "amount": 2 },
-        { "when": "always", "do": "limit", "amount": 1 } ] } ] },
+        { "when": "end", "do": "hoard", "every": 3, "amount": 1 } ] } ] },
 
   { "id": "base-021", "name": "星読みヤギ", "element": "white", "role": "score", "cost": { "white": 2, "any": 1 }, "growth": "late",
     "stages": [

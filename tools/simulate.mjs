@@ -27,7 +27,7 @@ const cat = buildCatalog([{ meta: read('../expansions/base/expansion.json'), car
 
 const COLOR_JA = { white: '白', red: '赤', blue: '青', green: '緑', yellow: '黄' };
 const ROLE_JA = { generate: '生成', guide: '導き', boost: '強化', convert: '変換', score: '得点', chain: '連鎖' };
-const LIMIT_CARDS = new Set(['ひだまりハチ', '渡り鳥', '両替カラス']);
+const YELLOW_HOARD = new Set(['ひだまりハチ', '渡り鳥', '両替カラス']); // 黄の「上限+」または「貯めて点」の札
 const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const f1 = (x) => x.toFixed(1);
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -74,7 +74,7 @@ for (const n of counts) {
       if (win) seatWins[r.player]++;
       rows.push({ ...r, win, cards: defs.length, color: mainOf(defs, 'element'), role: mainOf(defs, 'role'),
         discarded: pl.discarded, maxMana: maxMana[r.player],
-        limitCard: pl.garden.some((x) => x && LIMIT_CARDS.has(cat.cards[x.id].name) && cat.cards[x.id].stages[x.stage - 1].effects.some((e) => e.do === 'limit')) });
+        limitCard: pl.garden.some((x) => x && YELLOW_HOARD.has(cat.cards[x.id].name) && cat.cards[x.id].stages[x.stage - 1].effects.some((e) => e.do === 'limit' || e.do === 'hoard')) });
       for (const x of pl.garden) {
         if (!x) continue;
         const k = cat.cards[x.id].name;
@@ -101,7 +101,7 @@ for (const n of counts) {
   say(`| 1ゲームの操作の数（選ぶを除く） | ${f1(steps / games)} |`);
   say(`| 上限を超えて捨てた人の割合・1人あたり捨てた数 | ${pct(rows.filter((r) => r.discarded > 0).length / rows.length)}・${f1(avg(rows.map((r) => r.discarded)))} |`);
   say(`| 手持ちの素材の最大（平均） | ${f1(avg(rows.map((r) => r.maxMana)))} |`);
-  say(`| 黄の上限札あり／なしの点 | ${f1(avg(rows.filter((r) => r.limitCard).map((r) => r.total)))}（${rows.filter((r) => r.limitCard).length}人）／${f1(avg(rows.filter((r) => !r.limitCard).map((r) => r.total)))} |`);
+  say(`| 黄の上限・貯め札（効く段階）あり／なしの点 | ${f1(avg(rows.filter((r) => r.limitCard).map((r) => r.total)))}（${rows.filter((r) => r.limitCard).length}人）／${f1(avg(rows.filter((r) => !r.limitCard).map((r) => r.total)))} |`);
   say(`| かかった時間 | ${f1(sec)} 秒 |`);
   say();
   say('勝ち筋（いちばん多い色・役目ごとの1位の割合。「まぜ」は同数）：');

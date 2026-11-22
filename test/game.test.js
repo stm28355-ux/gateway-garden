@@ -68,13 +68,15 @@ test('支払い：決まった色と「任」', () => {
 test('育てる値段は上がり方どおり、強化で下がっても最低1個（読み方4）', () => {
   const st = reactState([[4, '芽吹きリス'], [1, '庭師モグラ'], [3, '応援ダヌキ', 2]]);
   const pl = st.players[0];
-  // 晩成 2 から、モグラ（隣の緑-1）とタヌキ段階2（隣の札-1）で 0 → 最低1
+  // 晩成 3 から、モグラ（隣の緑-1）とタヌキ段階2（隣の札-1）で 1
   assert.equal(growCost(cat, pl, 4), 1);
-  assert.equal(growCost(cat, pl, 1), 2, 'モグラ（マス1）はタヌキ（マス3）の隣ではないので晩成の2のまま');
+  assert.equal(growCost(cat, pl, 1), 3, 'モグラ（マス1）はタヌキ（マス3）の隣ではないので晩成の3のまま');
+  pl.garden[0] = { uid: 2000, id: byName(cat, '蜜運びアリ'), stage: 2 }; // マス1 と マス3 の隣で、もう-1
+  assert.equal(growCost(cat, pl, 4), 1, '0 になっても最低1');
 });
 
 test('育てると段階が上がり、素材は次のラウンドに回る（D3）', () => {
-  const st = reactState([[0, '道しるべフクロウ']], { white: 2 });
+  const st = reactState([[0, '道しるべフクロウ']], { white: 2 }); // 平ら：段階1→2 は2個
   const s = applyAction(cat, st, { type: 'grow', player: 0, cell: 0 });
   assert.equal(s.players[0].garden[0].stage, 2);
   assert.equal(s.players[0].mana.white, 0);
@@ -101,7 +103,7 @@ test('連鎖：段階が上がると隣を発動、同じ札は1回だけ（読�
 
 test('段階+1 は1枚を選び、選んだ札の「その段階になったとき」も動く（読み方5・6）', () => {
   // ミミズを段階3へ → 隣の緑1枚を段階+1（候補が2枚なので選ぶ）
-  const st = reactState([[4, '根っこのミミズ', 2], [1, '芽吹きリス'], [7, '発酵キノコ']], { green: 4 });
+  const st = reactState([[4, '根っこのミミズ', 2], [1, '芽吹きリス'], [7, '発酵キノコ']], { green: 4 }); // 晩成：段階2→3 は4個
   let s = applyAction(cat, st, { type: 'grow', player: 0, cell: 4 });
   assert.equal(s.players[0].choice.kind, 'stageUp');
   assert.deepEqual(s.players[0].choice.options, [1, 7]);
@@ -121,9 +123,14 @@ test('好きな色を得る・色を変えるは選ぶ。変換は途中で止�
   assert.deepEqual([s.players[0].mana.red, s.players[0].mana.green, s.players[0].mana.blue], [2, 1, 1]);
 });
 
-test('上限を超えたら反応フェーズの終わりに選んで捨てる（D4）。黄で上限が広がる', () => {
-  const st = reactState([[0, 'ひだまりハチ', 3]], { red: 9 });
-  assert.equal(limitOf(cat, st.players[0]), 12);
+test('黄の「貯めて点」：終わりに残った素材の数で点（#1 の直し）', () => {
+  const st = reactState([[0, 'ひだまりハチ', 3], [1, '両替カラス', 2]], { red: 7, blue: 2 });
+  // ハチ：9個÷2＝4点、カラス段階2：9個÷4＝2点
+  assert.equal(scoreOf(cat, st, 0).end, 4 + 2);
+  assert.equal(limitOf(cat, st.players[0]), 10);
+});
+
+test('上限を超えたら反応フェーズの終わりに選んで捨てる（D4）', () => {
   const st2 = reactState([[0, '灯りうさぎ']], { red: 10 });
   let s = applyAction(cat, st2, { type: 'done', player: 0 });
   assert.deepEqual(s.players[0].choice, { kind: 'discard', amount: 1 });

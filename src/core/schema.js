@@ -5,7 +5,8 @@ export const ELEMENTS = ['white', 'red', 'blue', 'green', 'yellow'];
 export const ROLES = ['generate', 'guide', 'boost', 'convert', 'score', 'chain']; // 生成・導き・強化・変換・得点・連鎖
 
 // 育てる値段（段階1→2、段階2→3）。乗せるのは札と同じ色の素材。
-export const GROWTH = { early: [1, 2], flat: [2, 2], late: [2, 4] }; // 早熟・平ら・晩成
+// フェーズ3の自動対戦で上げた（B案）。前は早熟1・2、平ら2・2、晩成2・4で、庭の約7枚のうち約6枚が段階3まで育った。
+export const GROWTH = { early: [1, 3], flat: [2, 3], late: [3, 4] }; // 早熟・平ら・晩成
 
 // いつ（フェーズ2で always と use を足した）
 // place 置いたとき・activate 毎ラウンドの発動・grow その段階になったとき・pick 拾うとき・end 終わりの得点
@@ -29,6 +30,7 @@ export const ACTIONS = {
   discount: ['amount'],             // 範囲の札の育てる値段を下げる（常に。最低1個）
   move: [],                         // 範囲の札1枚を、自分の庭の別のマスへ動かす（空きなら移動、札があれば入れ替え。段階はそのまま）
   score: ['amount'],                // 点を得る
+  hoard: ['every', 'amount'],       // 終わりに残った素材 every 個につき amount 点（when: 'end' だけ。フェーズ3で黄の「上限+」から替えた）
   limit: ['amount'],                // 持てる素材の上限を広げる
   trigger: [],                      // 範囲の札を発動させる（連鎖）
   bend: ['kind'],                   // 拾い方を曲げる（when: 'pick' だけ）
@@ -75,6 +77,10 @@ export function validateEffect(e, where, ctx, err) {
     if (ctx.stage < 2) err(`${where}: 拾い方を曲げるのは段階2から（D12）`);
   }
   if (ALWAYS_ONLY.includes(e.do) && e.when !== 'always') err(`${where}: ${e.do} は when: "always" で書く`);
+  if (e.do === 'hoard') {
+    if (e.when !== 'end') err(`${where}: hoard は when: "end" で書く`);
+    if (!(Number.isInteger(e.every) && e.every >= 1)) err(`${where}: hoard の every は1以上の整数`);
+  }
   if (e.when === 'grow' && ctx.stage === 1) err(`${where}: 段階1の「その段階になったとき」は起きない`);
   if (e.area !== undefined && !AREAS.includes(e.area)) err(`${where}: area が正しくない`);
   if (['stageUp', 'discount', 'trigger', 'move'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);

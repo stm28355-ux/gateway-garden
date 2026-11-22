@@ -26,7 +26,7 @@
 | `element` | 属性：`white` `red` `blue` `green` `yellow` |
 | `role` | 役目：`generate`（生成）`guide`（導き）`boost`（強化）`convert`（変換）`score`（得点）`chain`（連鎖） |
 | `cost` | 取る値段。`{ "red": 2, "any": 1 }` のように色ごと。合計1〜4 |
-| `growth` | 上がり方：`early`（早熟 1・2）`flat`（平ら 2・2）`late`（晩成 2・4）。育てるのは札と同じ色の素材 |
+| `growth` | 上がり方：`early`（早熟 1・3）`flat`（平ら 2・3）`late`（晩成 3・4）。育てるのは札と同じ色の素材 |
 | `stages` | 段階1〜3の3つ。それぞれ `points`（その段階の点、段階3は1以上）と `effects`（効果の部品の並び） |
 
 ## 効果の部品
@@ -36,7 +36,7 @@
 | 項目 | 選べるもの |
 | --- | --- |
 | `when` | `place` 置いたとき・`activate` 毎ラウンドの発動・`grow` その段階になったとき（段階2・3だけ）・`pick` 拾うとき（導きの札の段階2から）・`end` 終わりの得点・`always` 置いてある間ずっと・`use` 反応フェーズの育てる所で好きなときに1ラウンド1回 |
-| `do` | `gain`（`color`,`amount`）素材を得る・`convert`（`to`,`amount`）色を変える・`stageUp`（`amount`）範囲から1枚選んで段階を上げる・`discount`（`amount`）育てる値段を下げる（`always` だけ）・`score`（`amount`）点・`limit`（`amount`）上限を広げる（`always` だけ）・`trigger` 範囲の当てはまる札を全部発動させる・`move` 範囲の札1枚を庭の別のマスへ動かす・`bend`（`kind`）拾い方を曲げる |
+| `do` | `gain`（`color`,`amount`）素材を得る・`convert`（`to`,`amount`）色を変える・`stageUp`（`amount`）範囲から1枚選んで段階を上げる・`discount`（`amount`）育てる値段を下げる（`always` だけ）・`score`（`amount`）点・`hoard`（`every`,`amount`）終わりに残った素材 `every` 個につき `amount` 点（`end` だけ）・`limit`（`amount`）上限を広げる（`always` だけ）・`trigger` 範囲の当てはまる札を全部発動させる・`move` 範囲の札1枚を庭の別のマスへ動かす・`bend`（`kind`）拾い方を曲げる |
 | `area` | `self` 自分・`adjacent` 上下左右・`row` 同じ行・`column` 同じ列・`cross` 行と列・`garden` 庭ぜんぶ |
 | `filter` | `element`・`role`・`minStage`（1〜3）・`origin`（`same`/`other` 出身）・`empty`（空きマス）・`position`（`center`/`corner`/`edge`） |
 | `per` | `{ "area", "filter" }`：当てはまる札1枚につき `amount` 倍 |

@@ -6,7 +6,7 @@ import {
   applyMut, autoPay, defOf, stageOf, growCost, limitOf, manaTotal, pickOrder, scoreOf, emptyMana, countIn,
 } from './game.js';
 
-const W = { prod: 0.45, mana: 0.4, growth: 0.35, goal: 4 }; // 評価の重み（調整で直す）
+const W = { prod: 0.45, mana: 0.5, spare: 0.15, growth: 0.6, goal: 4 }; // 評価の重み（調整で直す）
 
 const clone = (x) => structuredClone(x);
 const light = (st) => clone({ ...st, deck: [], discardPile: [] }); // 試すときは山を持たない
@@ -46,12 +46,25 @@ export function valueOf(cat, st, p) {
   const left = st.rounds - st.round;
   let v = scoreOf(cat, st, p).total;
   if (left > 0) {
-    const usable = Math.min(manaTotal(pl.mana) + manaTotal(pl.incoming), limitOf(cat, pl));
-    v += W.prod * prodOf(cat, pl) * left + W.mana * usable;
+    // 手持ちの素材：育てるのに要る色は高く、要らない色は安く数える（上限を超えた分は数えない）
+    const want = wantOf(cat, pl);
+    let need = 0;
+    let rest = 0;
+    for (const c of ELEMENTS) {
+      const have = pl.mana[c] + pl.incoming[c];
+      need += Math.min(have, want[c]);
+      rest += Math.max(0, have - want[c]);
+    }
+    const room = limitOf(cat, pl);
+    need = Math.min(need, room);
+    rest = Math.min(rest, room - need);
+    v += W.prod * prodOf(cat, pl) * left + W.mana * need + W.spare * rest;
+    // 育てきったときの点の見込み。残りのラウンドが少ないほど割り引く。
+    const reach = Math.min(1, left / 3);
     for (const inst of pl.garden) {
       if (!inst || inst.stage >= 3) continue;
       const d = defOf(cat, inst);
-      v += W.growth * ((d.stages[inst.stage].points ?? 0) - (d.stages[inst.stage - 1].points ?? 0));
+      v += W.growth * reach * ((d.stages[2].points ?? 0) - (d.stages[inst.stage - 1].points ?? 0));
     }
   }
   for (const g of st.goals) {

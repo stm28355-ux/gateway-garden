@@ -167,7 +167,9 @@ export function scoreOf(cat, st, p) {
     stage += stageOf(cat, inst).points ?? 0;
     if (inst.stage === 3) stage3++;
     for (const e of effectsOf(cat, inst)) {
-      if (e.when === 'end' && e.do === 'score' && condOk(cat, pl, cell, e)) end += e.amount * multOf(cat, pl, cell, e);
+      if (e.when !== 'end' || !condOk(cat, pl, cell, e)) continue;
+      if (e.do === 'score') end += e.amount * multOf(cat, pl, cell, e);
+      if (e.do === 'hoard') end += Math.floor((manaTotal(pl.mana) + manaTotal(pl.incoming)) / e.every) * e.amount * multOf(cat, pl, cell, e);
     }
   });
   let goals = 0;
