@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>通信の確かめ</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  main { max-width: 760px; margin: 24px auto; padding: 0 16px; }
+  h1 { color: var(--gold-hi); margin-bottom: 4px; }
+  .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 10px 0; }
+  .box h2 { margin: 0 0 4px; }
+  .ok { color: #8fe0a0; font-weight: 700; } .ng { color: #ff9b8a; font-weight: 700; } .mid { color: var(--gold-hi); font-weight: 700; }
+  pre { white-space: pre-wrap; font-size: 12px; background: rgba(0,0,0,.25); padding: 8px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>通信の確かめ</h1>
+  <p class="muted">通信対戦でつながらないときに開くページです。ホストと入る人の両方で開き、いちばん下の結果を見比べてください（30秒ほどかかります）。この確かめでは、だれともつながりません。</p>
+  <p><button class="primary" id="go">確かめる</button></p>
+  <div class="box"><h2>1. 合図の中継に届くか</h2><div id="r1" class="muted">まだ</div></div>
+  <div class="box"><h2>2. NAT の形（直接つながりやすいか）</h2><div id="r2" class="muted">まだ</div></div>
+  <div class="box"><h2>3. TURN（中継）が使えるか</h2><div id="r3" class="muted">まだ</div></div>
+  <div class="box"><h2>結果（相手に送る用）</h2><pre id="sum">まだ</pre><button id="copy" disabled>結果をコピー</button></div>
+  <p><a href="index.html">ゲームに戻る</a></p>
+</main>
+<script type="module">
+import { TURN_URL, turnServers } from './src/net/turn.js';
+import { APP_VERSION } from './src/version.js';
+
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const lines = [];
+
+// candidate 文字列の中身（IP・番号・種類）
+function parse(c) {
+  const p = c.candidate.split(' ');
+  return { proto: p[2]?.toLowerCase(), ip: p[4], port: Number(p[5]), type: p[7] };
+}
+
+// 1つの線で ICE の候補を集める（同じ線で複数の STUN に聞くので、出口の番号を比べられる）
+async function gather(config, ms = 8000) {
+  const pc = new RTCPeerConnection(config);
+  pc.createDataChannel('check');
+  const found = [];
+  const done = new Promise((resolve) => {
+    pc.onicecandidate = (e) => { if (e.candidate && e.candidate.candidate) found.push(parse(e.candidate)); else if (!e.candidate) resolve(); };
+    setTimeout(resolve, ms);
+  });
+  await pc.setLocalDescription(await pc.createOffer());
+  await done;
+  pc.close();
+  return found;
+}
+
+async function checkRelays() {
+  // ゲームと同じつなぎ方（Trystero の nostr）で、ためしの部屋に入って中継の数を数える
+  const mod = await import('https://cdn.jsdelivr.net/npm/trystero@0.26.0/nostr/+esm');
+  const room = mod.joinRoom({ appId: 'gateway-garden.netcheck' }, `check-${Math.random().toString(36).slice(2)}`);
+  await sleep(6000);
+  const socks = Object.values(mod.getRelaySockets?.() ?? {});
+  const open = socks.filter((s) => s.readyState === 1).length;
+  room.leave();
+  return { open, total: socks.length };
+}
+
+async function run() {
+  $('go').disabled = true;
+  lines.length = 0;
+  lines.push(`Gateway Garden ${APP_VERSION}・${new Date().toLocaleString('ja-JP')}`);
+
+  $('r1').textContent = '確かめています…';
+  try {
+    const { open, total } = await checkRelays();
+    const good = open > 0;
+    $('r1').innerHTML = `<span class="${good ? 'ok' : 'ng'}">${good ? '届いています' : '届いていません'}</span>（中継 ${total} か所のうち ${open} か所につながった）`
+      + (good ? '' : '<br>回線やセキュリティソフトが WebSocket をふさいでいるかもしれません。ゲームのアドレスの後ろに ?net=mqtt や ?net=torrent を付けると、別の中継を試せます。');
+    lines.push(`1 中継：${open}/${total}`);
+  } catch (e) {
+    $('r1').innerHTML = `<span class="ng">確かめられませんでした</span>（${e.message}）`;
+    lines.push(`1 中継：失敗 ${e.message}`);
+  }
+
+  $('r2').textContent = '確かめています…';
+  const cands = await gather({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }] });
+  const srflx = cands.filter((c) => c.type === 'srflx' && c.proto === 'udp');
+  const byIp = {};
+  for (const c of srflx) (byIp[c.ip] ??= new Set()).add(c.port);
+  const ports = Object.values(byIp);
+  let kind;
+  if (!srflx.length) {
+    kind = 'blocked';
+    $('r2').innerHTML = '<span class="ng">外の STUN から答えがありません</span>。UDP がふさがれている回線のようです（会社・学校の回線など）。直接はつながりにくく、TURN（下の3）が要ります。';
+  } else if (ports.some((s) => s.size > 1)) {
+    kind = 'symmetric';
+    $('r2').innerHTML = '<span class="ng">越えにくい NAT</span>です（行き先ごとに出口の番号が変わる形。スマホの回線・テザリング・マンションの回線に多い）。相手も同じような回線だと、直接はつながりません。TURN（下の3）が要ります。';
+  } else if (srflx.length === 1 && ports.length === 1) {
+    kind = 'easy';
+    $('r2').innerHTML = '<span class="ok">ふつうの NAT</span>です（どの行き先にも同じ出口の番号）。直接つながりやすい回線です。';
+  } else {
+    kind = 'easy?';
+    $('r2').innerHTML = '<span class="mid">たぶんふつうの NAT</span>です（出口の番号は1つ）。';
+  }
+  lines.push(`2 NAT：${{ blocked: 'STUN の答えなし（UDP がふさがれている？）', symmetric: '越えにくい NAT', easy: 'ふつうの NAT', 'easy?': 'たぶんふつうの NAT' }[kind]}（出口 ${Object.entries(byIp).map(([ip, s]) => `${ip.includes(':') ? 'IPv6' : 'IPv4'} ${s.size}つ`).join('・') || 'なし'}）`);
+
+  $('r3').textContent = '確かめています…';
+  if (!TURN_URL) {
+    $('r3').innerHTML = '<span class="mid">まだ設定していません</span>（今のゲームは TURN を使わず、直接だけでつないでいます）。';
+    lines.push('3 TURN：未設定');
+  } else {
+    const turn = await turnServers();
+    if (!turn) {
+      $('r3').innerHTML = '<span class="ng">TURN の鍵を取れませんでした</span>。';
+      lines.push('3 TURN：鍵を取れない');
+    } else {
+      const relay = (await gather({ iceServers: turn, iceTransportPolicy: 'relay' }, 10000)).filter((c) => c.type === 'relay');
+      $('r3').innerHTML = relay.length ? `<span class="ok">使えます</span>（中継の候補 ${relay.length} 個）。直接つながらない相手とも、中継を通ってつながるはずです。` : '<span class="ng">使えません</span>（中継の候補が出ませんでした）。';
+      lines.push(`3 TURN：${relay.length ? `使える（${relay.length}）` : '使えない'}`);
+    }
+  }
+
+  $('sum').textContent = lines.join('\n');
+  $('copy').disabled = false;
+  $('go').disabled = false;
+}
+
+$('go').addEventListener('click', run);
+$('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('sum').textContent); $('copy').textContent = 'コピーしました'; } catch { $('copy').textContent = 'コピーできませんでした'; }
+});
+</script>
+</body>
+</html>

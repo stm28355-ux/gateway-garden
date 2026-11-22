@@ -4,9 +4,10 @@ const TRYSTERO = 'https://cdn.jsdelivr.net/npm/trystero@0.26.0'; // 0.26.0（202
 const APP_ID = 'gateway-garden.stm28355';
 export const MESSAGES = ['hello', 'lobby', 'deny', 'view', 'act', 'err']; // 名前は短く
 
-export async function openTrystero(code, { strategy = 'nostr' } = {}) {
+// turnConfig：TURN サーバーの並び（src/net/turn.js）。あれば、直接つながらない回線どうしでも中継を通ってつながる
+export async function openTrystero(code, { strategy = 'nostr', turnConfig = null } = {}) {
   const mod = await import(`${TRYSTERO}/${strategy}/+esm`);
-  const room = mod.joinRoom({ appId: APP_ID, password: code }, `room-${code}`);
+  const room = mod.joinRoom({ appId: APP_ID, password: code, ...(turnConfig ? { turnConfig } : {}) }, `room-${code}`);
   const handlers = {};
   const actions = {};
   for (const name of MESSAGES) {

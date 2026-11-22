@@ -7,6 +7,7 @@ import { GOALS } from '../core/goals.js';
 import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars, glossaryHtml, setExplain } from './describe.js';
 import { GameHost, HostRoom, GuestClient } from '../net/session.js';
 import { openTrystero } from '../net/trystero.js';
+import { turnServers } from '../net/turn.js';
 import { APP_VERSION } from '../version.js';
 import { filterHtml, listHtml, allState, toggleFilter, leftCounts } from './cardlist.js';
 import { installMemo } from './memo.js';
@@ -155,7 +156,7 @@ async function openRoom({ name, code, n, rounds, ids }) {
   busy = 'つないでいます…';
   renderSetup();
   try {
-    const net = await openTrystero(code, { strategy: STRATEGY });
+    const net = await openTrystero(code, { strategy: STRATEGY, turnConfig: await turnServers() });
     const versions = Object.fromEntries(expansions.filter((e) => ids.includes(e.meta.id)).map((e) => [e.meta.id, e.meta.version]));
     room = new HostRoom(net, { name, count: n, rounds, expansions: ids, versions, makeCatalog });
     room.code = code;
@@ -173,9 +174,11 @@ async function joinRoom({ name, code }) {
   busy = 'つないでいます…';
   renderSetup();
   try {
-    const net = await openTrystero(code, { strategy: STRATEGY });
+    const net = await openTrystero(code, { strategy: STRATEGY, turnConfig: await turnServers() });
     const guest = new GuestClient(net, { name, token: myToken() });
     guest.code = code;
+    guest.since = Date.now();
+    setTimeout(() => { if (room === guest && screen === 'lobby' && !guest.lobbyInfo) render(); }, SLOW_MS + 100);
     room = guest;
     guest.onChange(() => {
       const info = guest.lobbyInfo;
@@ -196,6 +199,9 @@ async function joinRoom({ name, code }) {
   }
 }
 
+// ホストが見つからないまま、これだけたったら「直接つながらない回線かも」と出す
+const SLOW_MS = 45000;
+
 function renderLobby() {
   const info = room instanceof HostRoom ? room.lobby() : room.lobbyInfo;
   const isHost = room instanceof HostRoom;
@@ -206,7 +212,8 @@ function renderLobby() {
     ${room.problem ? `<p class="error">${esc(room.problem)}</p>` : ''}
     ${info ? `<p>${info.count}人・${info.rounds}ラウンド・世界：${info.expansions.map(worldName).join('・')}</p>
       <ol class="seats">${seats.map((s, i) => `<li>${s ? esc(s) : '<span class="muted">（空き → 始めると CPU）</span>'}${i === 0 ? '（ホスト）' : ''}</li>`).join('')}</ol>`
-    : '<p class="muted">ホストを探しています…（ホストが部屋を作っていないと見つかりません）</p>'}
+    : `<p class="muted">ホストを探しています…（ホストが部屋を作っていないと見つかりません。ふつう1分くらいかかります）</p>
+      ${room.since && Date.now() - room.since > SLOW_MS ? '<p class="error">まだ見つかりません。ホストとあなたのどちらかが、直接つながらない回線（越えにくい NAT）にいるのかもしれません。<a href="net-check.html" target="_blank">通信の確かめ</a>を2人とも開いて、結果を見比べてください。</p>' : ''}`}
     ${isHost ? `<p class="muted">入る人に合言葉「${esc(room.code)}」を伝えてください。全員そろったら始めます。</p>
       <button class="primary" data-act="lobby-start">はじめる</button>`
     : (info ? '<p class="muted">ホストが始めるのを待っています…</p>' : '')}
