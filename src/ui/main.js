@@ -12,6 +12,7 @@ import { filterHtml, listHtml, allState, toggleFilter, leftCounts } from './card
 import { installMemo } from './memo.js';
 import { gemSvg } from './gems.js';
 import { baseArt } from '../art/base.js';
+import { goalArt } from '../art/goals.js';
 
 const memo = installMemo(); // 落書き（#6）。自分の画面だけに残る
 
@@ -270,7 +271,7 @@ function goalsHtml() { // 反応フェーズ中の取り方は、view がすで�
     const claims = st.claims[g];
     const first = claims.length ? Math.min(...claims.map((x) => x.round)) : null;
     const who = claims.map((x) => `${esc(nameOf(x.player))}${x.round === first ? '（5点）' : '（3点）'}`).join('・');
-    return `<div class="goal"><b>${GOALS[g].name}</b><span>${GOALS[g].text}</span><small>${who || 'まだ誰も'}</small></div>`;
+    return `<div class="goal"><div class="goal-art">${goalArt(g, 40)}</div><div><b>${GOALS[g].name}</b><span>${GOALS[g].text}</span><small>${who || 'まだ誰も'}</small></div></div>`;
   }).join('');
 }
 
@@ -453,7 +454,7 @@ function opponentsHtml() {
     const status = st.phase === 'react' ? (pl.status === 'done' ? '終えた' : '考え中') : '';
     const who = pl.away ? '（抜けた・CPU が代わり）' : (pl.cpu ? '（CPU）' : '');
     return `<div class="opp"><div class="opp-head"><b>${esc(pl.name)}</b><small class="muted">${who}</small><span>${s.total}点 ${status}</span></div>
-      <div class="mana">${manaRow(pl.mana)}${pl.pending.length ? `<span class="muted">手元${pl.pending.length}枚</span>` : ''}</div>${gardenHtml(pl.index, true)}</div>`;
+      <div class="mana">${manaRow(pl.mana)}${pl.pending.length ? `<span class="muted">手元${pl.pending.length}枚</span>` : ''}</div><div class="island mini">${gardenHtml(pl.index, true)}</div></div>`;
   }).join('');
 }
 
@@ -510,20 +511,22 @@ function render() {
   ${lost}
   <section class="board">
     <div class="col-left">
-      <h2>お題カード</h2><div class="goals">${goalsHtml()}</div>
-      <h2>束（摘む）</h2><div class="bundles">${bundlesHtml()}</div>
-      <h2>場のカード（招く）</h2><div class="market">${marketHtml()}</div>
+      <section class="sec"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
+      <section class="sec"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div></section>
+      <section class="sec"><h2 class="sec-title">場のカード（招く）</h2><div class="market">${marketHtml()}</div></section>
     </div>
     <div class="col-mid">
-      <div class="me-head"><h2>${esc(pl.name)} の庭</h2><span>${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span></div>
-      <div class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></div>
-      ${gardenHtml(ME)}
-      <div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div>
+      <section class="sec mine">
+        <div class="me-head"><h2 class="sec-title">${esc(pl.name)} の庭</h2><span>${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span></div>
+        <div class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></div>
+        <div class="island">${gardenHtml(ME)}</div>
+      </section>
+      <section class="sec"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
     </div>
     <div class="col-right">
-      <div class="detail-box">${detailHtml()}</div>
-      <h2>ほかの人</h2><div class="opps">${opponentsHtml()}</div>
-      <h2>できごと</h2><ol class="log" reversed>${session.log().slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ol>
+      <section class="sec"><h2 class="sec-title">カードの説明</h2><div class="detail-box">${detailHtml()}</div></section>
+      <section class="sec"><h2 class="sec-title">ほかの人</h2><div class="opps">${opponentsHtml()}</div></section>
+      <section class="sec"><h2 class="sec-title">できごと</h2><ol class="log" reversed>${session.log().slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ol></section>
     </div>
   </section>
   ${endHtml()}

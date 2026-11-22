@@ -1,6 +1,7 @@
 // ペンで落書きできるメモ（#6）。画面の上に重ねる透明な紙。盤面の配置は動かさない。通信対戦でもほかの人には送らない。
 // 「メモ」で書く状態にする（書いている間は下の画面を押せない）。もう一度押すと書き終わり（絵は残る）。
-const COLORS = ['#222222', '#d6453a', '#2f6fd1'];
+// 暗い画面（星の書）なので、白をはじめのペンにする（工程7の判定 X2）。赤と水色は目立たせたいとき用
+const COLORS = ['#ffffff', '#ff7b6b', '#8fd6ff'];
 
 export function installMemo() {
   const canvas = document.createElement('canvas');
@@ -9,7 +10,7 @@ export function installMemo() {
   Object.assign(canvas.style, { position: 'absolute', left: '0', top: '0', zIndex: '50', pointerEvents: 'none', background: 'transparent' });
   const bar = document.createElement('div');
   bar.className = 'memo-bar';
-  Object.assign(bar.style, { position: 'fixed', right: '16px', bottom: '16px', zIndex: '60', display: 'none', gap: '6px', padding: '6px 8px', background: '#fffdf7', border: '2px solid #d6453a', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' });
+  Object.assign(bar.style, { position: 'fixed', right: '16px', bottom: '16px', zIndex: '60', display: 'none', gap: '6px', padding: '6px 8px', background: '#1f2740', color: '#f3ead2', border: '2px solid #ff7b6b', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' });
   const frame = document.createElement('div'); // 書いている間だけ、画面のふちを赤い枠で囲む（画面は暗くも白くもしない）
   Object.assign(frame.style, { position: 'fixed', inset: '0', zIndex: '55', pointerEvents: 'none', border: '4px solid rgba(214,69,58,.7)', display: 'none' });
   bar.innerHTML = `${COLORS.map((c, i) => `<button data-memo="pen" data-color="${c}" class="${i ? '' : 'on'}" title="ペン"><span style="background:${c}"></span></button>`).join('')}
@@ -17,7 +18,7 @@ export function installMemo() {
     <button data-memo="clear" title="全部消す">全消し</button>
     <button data-memo="hide" title="絵を隠す・見せる">隠す</button>
     <button data-memo="done" class="primary">書き終わり</button>`;
-  bar.insertAdjacentHTML('afterbegin', '<b style="align-self:center;font-size:12px;color:#d6453a">書いています</b>');
+  bar.insertAdjacentHTML('afterbegin', '<b style="align-self:center;font-size:12px;color:#ff7b6b">書いています</b>');
   document.body.append(canvas, frame, bar);
 
   const ctx = canvas.getContext('2d');
@@ -29,8 +30,10 @@ export function installMemo() {
 
   // 紙の大きさをページ全体に合わせる（大きくなるときは描いた絵を残す）
   function fit() {
-    const w = Math.max(document.documentElement.scrollWidth, window.innerWidth);
-    const h = Math.max(document.documentElement.scrollHeight, window.innerHeight);
+    // 窓の幅はスクロールバーを除いた clientWidth で取る（innerWidth だと紙がはみ出して横スクロールが出る）
+    const root = document.documentElement;
+    const w = Math.max(root.scrollWidth, root.clientWidth);
+    const h = Math.max(root.scrollHeight, root.clientHeight);
     if (canvas.width >= w && canvas.height >= h) return;
     const keep = document.createElement('canvas');
     keep.width = canvas.width;
