@@ -307,19 +307,19 @@ function resolveChoice(cat, st, pl, value) {
       break;
     case 'convert':
       if (value === null) { pl.queue = pl.queue.filter((t) => t.group !== ch.group); break; } // 「まで」なので止めてよい
-      if (!ch.from.includes(value?.from)) fail('変える素材を選ぶ');
+      if (!ch.from.includes(value?.from)) fail('変える魔素を選ぶ');
       if (ch.to === 'any' ? !ELEMENTS.includes(value.to) || value.to === value.from : value.to !== ch.to) fail('変える先の色が正しくない');
       pl.mana[value.from]--;
       pl.mana[value.to]++;
       break;
     case 'stageUp':
-      if (!ch.options.includes(value)) fail('段階を上げる札を選ぶ');
+      if (!ch.options.includes(value)) fail('★を育てるカードを選ぶ');
       pl.choice = null;
       raiseStage(cat, pl, value, ch.chain);
       return;
     case 'move':
       if (value !== null) {
-        if (!ch.from.includes(value?.from) || !CELLS.includes(value.to) || value.to === value.from) fail('動かす札と先のマスを選ぶ');
+        if (!ch.from.includes(value?.from) || !CELLS.includes(value.to) || value.to === value.from) fail('動かすカードと先のマスを選ぶ');
         const g = pl.garden;
         [g[value.from], g[value.to]] = [g[value.to], g[value.from]]; // 空きなら移動、札があれば入れ替え
       }
@@ -328,10 +328,10 @@ function resolveChoice(cat, st, pl, value) {
       let sum = 0;
       for (const c of ELEMENTS) {
         const v = value?.[c] ?? 0;
-        if (!Number.isInteger(v) || v < 0 || v > pl.mana[c]) fail('捨てる素材が正しくない');
+        if (!Number.isInteger(v) || v < 0 || v > pl.mana[c]) fail('捨てる魔素が正しくない');
         sum += v;
       }
-      if (sum !== ch.amount) fail(`素材を ${ch.amount} 個捨てる`);
+      if (sum !== ch.amount) fail(`魔素を ${ch.amount} 個捨てる`);
       for (const c of ELEMENTS) pl.mana[c] -= value[c] ?? 0;
       pl.discarded += sum;
       break;
@@ -392,7 +392,7 @@ function progress(cat, st, p) {
 
 function takeFromMarket(st, i) {
   const card = st.market[i];
-  if (!card) fail('その場所に札がない');
+  if (!card) fail('その場所にカードがない');
   st.market[i] = draw(st);
   return card;
 }
@@ -407,9 +407,9 @@ export function buyCost(cat, card, k) {
 }
 
 function doPick(cat, st, a) {
-  if (st.phase !== 'pick') fail('拾うフェーズではない');
+  if (st.phase !== 'pick') fail('採集フェーズではない');
   const p = pickOrder(st)[st.turn];
-  if (a.player !== p) fail('拾う番ではない');
+  if (a.player !== p) fail('摘む番ではない');
   const pl = st.players[p];
   if (!st.bundles[a.bundle]) fail('その束はない');
   const taken = [...st.bundles[a.bundle]];
@@ -417,10 +417,10 @@ function doPick(cat, st, a) {
   const adds = [];
   for (const bend of a.bends ?? []) {
     const inst = pl.garden[bend.cell];
-    if (!inst) fail('そのマスに札がない');
-    if (usedCells.has(bend.cell)) fail('同じ札は1回の拾いで1回だけ'); // D12
+    if (!inst) fail('そのマスにカードがない');
+    if (usedCells.has(bend.cell)) fail('同じカードは1回の摘みで1回だけ'); // D12
     const eff = effectsOf(cat, inst).find((e) => e.when === 'pick' && e.do === 'bend' && e.kind === bend.kind && condOk(cat, pl, bend.cell, e));
-    if (!eff) fail('その札はこの曲げ方を使えない');
+    if (!eff) fail('そのカードはこの曲げ方を使えない');
     usedCells.add(bend.cell);
     if (bend.kind === 'swap') {
       const other = st.bundles[bend.other];
@@ -440,11 +440,11 @@ function doPick(cat, st, a) {
   }
   st.bundles[a.bundle] = randomBundle(st);
   const buys = buysOf(a);
-  if (buys.length > MAX_BUYS) fail(`札は1回に${MAX_BUYS}枚まで`);
-  if (new Set(buys.map((b) => b.market)).size !== buys.length) fail('同じ札は2回取れない');
+  if (buys.length > MAX_BUYS) fail(`カードは1回に${MAX_BUYS}枚まで`);
+  if (new Set(buys.map((b) => b.market)).size !== buys.length) fail('同じカードは2回招けない');
   buys.forEach((b, k) => { // 場所は拾う前の場で数え、取ってから補充する
     const card = st.market[b.market];
-    if (!card) fail('その場所に札がない');
+    if (!card) fail('その場所にカードがない');
     const cost = buyCost(cat, card, k);
     if (!canPay(cost, b.pay, pl.mana)) fail('払う魔素が正しくない');
     for (const c of ELEMENTS) pl.mana[c] -= b.pay[c] ?? 0;
@@ -456,7 +456,7 @@ function doPick(cat, st, a) {
 }
 
 function needActing(st, p) {
-  if (st.phase !== 'react') fail('反応フェーズではない');
+  if (st.phase !== 'react') fail('手入れフェーズではない');
   const pl = st.players[p];
   if (!pl || pl.status !== 'acting') fail('いまは庭を触れない');
   if (pl.choice) fail('先に選ぶ');
@@ -486,8 +486,8 @@ export function applyMut(cat, st, a) {
       return st;
     }
     case 'draft': {
-      if (st.phase !== 'draft') fail('始まりの札を取る時ではない');
-      if (st.draftOrder[st.turn] !== p) fail('取る番ではない');
+      if (st.phase !== 'draft') fail('始まりのカードを招く時ではない');
+      if (st.draftOrder[st.turn] !== p) fail('招く番ではない');
       st.players[p].pending.push(takeFromMarket(st, a.market));
       st.turn++;
       if (st.turn === st.players.length) { st.phase = 'pick'; st.turn = 0; }
@@ -499,7 +499,7 @@ export function applyMut(cat, st, a) {
     case 'place': {
       const pl = needActing(st, p);
       const card = pl.pending[a.pending];
-      if (!card) fail('置く札がない');
+      if (!card) fail('置くカードがない');
       if (!CELLS.includes(a.cell)) fail('そのマスはない');
       if (pl.garden[a.cell]) {
         if (pl.garden.some((x) => !x)) fail('空きマスがあるうちは置き換えられない'); // D15
@@ -514,11 +514,11 @@ export function applyMut(cat, st, a) {
     case 'grow': {
       const pl = needActing(st, p);
       const inst = pl.garden[a.cell];
-      if (!inst) fail('そのマスに札がない');
-      if (inst.stage >= 3) fail('もう段階3');
+      if (!inst) fail('そのマスにカードがない');
+      if (inst.stage >= 3) fail('もう★★★');
       const cost = growCost(cat, pl, a.cell);
       const color = defOf(cat, inst).element;
-      if (pl.mana[color] < cost) fail('素材が足りない');
+      if (pl.mana[color] < cost) fail('魔素が足りない');
       pl.mana[color] -= cost;
       raiseStage(cat, pl, a.cell, newChain(pl));
       break;
@@ -526,17 +526,17 @@ export function applyMut(cat, st, a) {
     case 'use': {
       const pl = needActing(st, p);
       const inst = pl.garden[a.cell];
-      if (!inst) fail('そのマスに札がない');
+      if (!inst) fail('そのマスにカードがない');
       if (pl.used.includes(inst.uid)) fail('このラウンドはもう使った');
       const tasks = effectTasks(cat, inst, 'use', newChain(pl));
-      if (!tasks.length) fail('この札に使う効果はない');
+      if (!tasks.length) fail('このカードに使う効果はない');
       pl.used.push(inst.uid);
       pl.queue.push(...tasks);
       break;
     }
     case 'done': {
       const pl = needActing(st, p);
-      if (pl.pending.length > HAND_LIMIT) fail(`置かずに持っておける札は${HAND_LIMIT}枚まで`);
+      if (pl.pending.length > HAND_LIMIT) fail(`置かずに持っておけるカードは${HAND_LIMIT}枚まで`);
       pl.status = 'activating';
       const chain = newChain(pl);
       for (const inst of pl.garden) { // 読み方7：左上から右下へ

@@ -3,15 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gateway Garden 札の一覧</title>
+<title>Gateway Garden カードの一覧</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="bar"><b>Gateway Garden</b><span>札の一覧</span><span class="spacer"></span><a href="./">ゲームへ</a></header>
+<header class="bar"><b>Gateway Garden</b><span>カードの一覧</span><button id="explain" title="キーワードの後ろに説明を書くか"></button><span class="spacer"></span><a href="./">ゲームへ</a></header>
 <main id="cards" class="cardpage"><p class="loading">読み込み中…</p></main>
 <script type="module">
 import { buildCatalog } from './src/core/game.js';
 import { filterHtml, listHtml, allState, toggleFilter } from './src/ui/cardlist.js';
+import { glossaryHtml, setExplain, getExplain } from './src/ui/describe.js';
 
 const get = async (p) => (await fetch(p)).json();
 const ids = await get('expansions/index.json');
@@ -21,9 +22,17 @@ const origins = exps.map((e) => ({ id: e.meta.id, name: `${e.meta.name}（版 ${
 const originNames = Object.fromEntries(exps.map((e) => [e.meta.id, e.meta.name]));
 const state = allState(origins);
 const root = document.getElementById('cards');
+try { setExplain(localStorage.getItem('gg-explain') !== 'off'); } catch { /* 保存できなくても見られる */ }
+const btn = document.getElementById('explain');
 const draw = () => {
-  root.innerHTML = `${filterHtml(origins, state)}${listHtml(Object.values(cat.cards), state, { originNames })}`;
+  btn.textContent = `説明：${getExplain() ? 'あり' : 'なし'}`;
+  root.innerHTML = `<details class="rules"><summary>キーワード</summary>${glossaryHtml()}</details>${filterHtml(origins, state)}${listHtml(Object.values(cat.cards), state, { originNames })}`;
 };
+btn.addEventListener('click', () => {
+  setExplain(!getExplain());
+  try { localStorage.setItem('gg-explain', getExplain() ? 'on' : 'off'); } catch { /* 同上 */ }
+  draw();
+});
 root.addEventListener('change', (ev) => { if (ev.target.dataset.filter) { toggleFilter(state, ev.target); draw(); } });
 draw();
 </script>

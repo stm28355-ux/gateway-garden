@@ -1,16 +1,16 @@
-// 札の一覧（#8）。札の一覧のページ（cards.html）と、ゲーム中の「札の一覧」の両方で使う。
+// カードの一覧（#8）。カードの一覧のページ（cards.html）と、ゲーム中の「カードの一覧」の両方で使う。
 import { ELEMENTS, ROLES, GROWTH } from '../core/schema.js';
-import { stageLines, costText, COLOR_JA, ROLE_JA, GROWTH_JA } from './describe.js';
+import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars } from './describe.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // 1枚を全部の段階まで描く。left は「まだ出ていない枚数」（出さないなら undefined）
 export function fullCardHtml(d, { originName = d.origin, left, copies } = {}) {
-  const stages = [0, 1, 2].map((i) => `<div class="fc-stage"><b>段階${i + 1}</b>${d.stages[i].points ? `（${d.stages[i].points}点）` : ''}<br>${stageLines(d, i).map(esc).join('<br>')}</div>`).join('');
+  const stages = [0, 1, 2].map((i) => `<div class="fc-stage"><b>${stars(i + 1)}</b>${d.stages[i].points ? `（${d.stages[i].points}点）` : ''}<br>${stageLinesHtml(d, i).join('<br>')}</div>`).join('');
   return `<div class="fullcard ${d.element}">
     <div class="fc-head"><b>${esc(d.name)}</b>${left !== undefined ? `<span class="fc-left ${left ? '' : 'none'}">あと${left}／${copies}枚</span>` : ''}</div>
-    <div class="fc-meta">${COLOR_JA[d.element]}・${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}（育てる ${GROWTH[d.growth].join('・')}）</div>
-    <div class="fc-meta">取る値段 ${costText(d.cost)}・${esc(originName)}</div>
+    <div class="fc-meta">${COLOR_JA[d.element]}・${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}（育てる魔素 ${GROWTH[d.growth].join('・')}）</div>
+    <div class="fc-meta">招く魔素 ${costText(d.cost)}・世界「${esc(originName)}」</div>
     ${stages}
   </div>`;
 }
@@ -29,7 +29,7 @@ export function listHtml(cards, state, { originNames = {}, left = null, copies =
   const shown = cards
     .filter((d) => state.origins.has(d.origin) && state.colors.has(d.element) && state.roles.has(d.role))
     .sort((a, b) => (ELEMENTS.indexOf(a.element) - ELEMENTS.indexOf(b.element)) || (ROLES.indexOf(a.role) - ROLES.indexOf(b.role)));
-  if (!shown.length) return '<p class="muted">当てはまる札がありません。</p>';
+  if (!shown.length) return '<p class="muted">当てはまるカードがありません。</p>';
   return `<p class="muted">${shown.length}種類</p><div class="fullcards">${shown.map((d) => fullCardHtml(d, { originName: originNames[d.origin] ?? d.origin, left: left ? left[d.id] : undefined, copies })).join('')}</div>`;
 }
 
