@@ -117,6 +117,10 @@ export class GameHost extends Emitter {
 
 // ---- 部屋を作った人（ホスト） ------------------------------------------------
 
+export const MAX_SEATS = 4; // 1つの部屋に入れる人数（ゲームの人数の上限）
+
+// 部屋（#9）：1回つないだら、何ゲームも続けられる。ゲームセット（人数・長さ・世界）は部屋の中でホストが選び、入った人にも見える。
+// ゲームが終わったら backToRoom で部屋に戻り、つながりはそのままで次のゲームを始める。
 export class HostRoom extends Emitter {
   constructor(net, { name, count, rounds, expansions, versions, makeCatalog, timing = {} }) {
     super();
@@ -152,10 +156,12 @@ export class HostRoom extends Emitter {
     const again = this.seats.find((s) => s.token && s.token === m.token);
     if (again) again.peer = peer;
     else {
-      if (this.seats.length >= this.settings.count) { this.net.send('deny', { reason: '部屋がいっぱいです。' }, peer); return; }
+      if (this.seats.length >= MAX_SEATS) { this.net.send('deny', { reason: '部屋がいっぱいです。' }, peer); return; }
       let name = m.name || 'ゲスト';
       while (this.seats.some((s) => s.name === name)) name += '＋';
       this.seats.push({ name, peer, token: m.token });
+      // 人数より多く入ってきたら、人数を増やす（ホストが後で減らせるのは、入っている人数まで）
+      this.settings.count = Math.max(this.settings.count, this.seats.length);
     }
     this.sendLobby();
   }
@@ -168,7 +174,26 @@ export class HostRoom extends Emitter {
     this.sendLobby();
   }
 
+  // ゲームセットを変える（部屋の中でだけ。始まっている間は変えない）
+  setSettings(s) {
+    if (this.game) return;
+    this.settings = { ...this.settings, ...s };
+    this.settings.count = Math.min(MAX_SEATS, Math.max(this.settings.count, this.seats.length));
+    this.sendLobby();
+  }
+
+  // ゲームが終わったら部屋に戻る。抜けたままの席（CPU が代わっていた人）は部屋から外す
+  backToRoom() {
+    if (!this.game) return;
+    clearTimeout(this.game.timer);
+    this.game.net = null;
+    this.game = null;
+    this.seats = this.seats.filter((s, i) => i === 0 || s.peer);
+    this.sendLobby();
+  }
+
   start(seed) {
+    this.settings.count = Math.max(this.settings.count, this.seats.length);
     const cat = this.makeCatalog(this.settings.expansions);
     const players = this.seats.map((s) => ({ name: s.name }));
     for (let i = players.length; i < this.settings.count; i++) players.push({ name: `CPU${i - this.seats.length + 1}`, cpu: 'normal' });
@@ -205,7 +230,12 @@ export class GuestClient extends Emitter {
     this.problem = '';
     this.error = '';
     this.elapsedMs = 0;
-    net.on('lobby', (m, peer) => { this.hostId = peer; this.lobbyInfo = m; this.emit(); });
+    net.on('lobby', (m, peer) => {
+      this.hostId = peer;
+      this.lobbyInfo = m;
+      if (!m.started) { this.st = null; this.lines = []; this.error = ''; } // ホストが部屋に戻した（#9）
+      this.emit();
+    });
     net.on('deny', (m) => { this.problem = m.reason; this.emit(); });
     net.on('view', (m, peer) => {
       this.hostId = peer;

@@ -86,9 +86,8 @@ function renderSetup() {
       <label>種（空なら毎回ちがう） <input name="seed" inputmode="numeric" placeholder="例：123"></label>
       <button class="primary" type="submit">はじめる</button>`;
   } else if (mode === 'host') {
-    body = `<label>人数 <select name="players"><option>2</option><option selected>3</option><option>4</option></select>（人が足りない席は CPU）</label>
-      ${rounds}<fieldset><legend>使う世界</legend>${exps}</fieldset>
-      <label>合言葉 <input name="code" value="${randomCode()}" maxlength="24" required>（入る人に伝える）</label>
+    // 人数・長さ・世界は、つないだ後に部屋の中で選ぶ（#9）
+    body = `<label>合言葉 <input name="code" value="${randomCode()}" maxlength="24" required>（入る人に伝える）</label>
       <button class="primary" type="submit">部屋を作る</button>`;
   } else {
     body = `<label>合言葉 <input name="code" maxlength="24" required placeholder="部屋を作った人に聞く"></label>
@@ -118,7 +117,7 @@ function renderSetup() {
       const seed = f.get('seed') ? Number(f.get('seed')) : Math.floor(Math.random() * 1e9);
       startSolo({ name: nm, n: Number(f.get('players')), rounds: Number(f.get('rounds')), seed, ids: chosenExpansions() });
     } else if (mode === 'host') {
-      openRoom({ name: nm, code: f.get('code').trim(), n: Number(f.get('players')), rounds: Number(f.get('rounds')), ids: chosenExpansions() });
+      openRoom({ name: nm, code: f.get('code').trim() });
     } else {
       joinRoom({ name: nm, code: f.get('code').trim() });
     }
@@ -152,13 +151,14 @@ function startSolo({ name, n, rounds, seed, ids }) {
   game.changed();
 }
 
-async function openRoom({ name, code, n, rounds, ids }) {
+const versionsOf = (ids) => Object.fromEntries(expansions.filter((e) => ids.includes(e.meta.id)).map((e) => [e.meta.id, e.meta.version]));
+
+async function openRoom({ name, code, n = 3, rounds = 8, ids = expansions.map((e) => e.meta.id) }) {
   busy = 'つないでいます…';
   renderSetup();
   try {
     const net = await openTrystero(code, { strategy: STRATEGY, turnConfig: await turnServers() });
-    const versions = Object.fromEntries(expansions.filter((e) => ids.includes(e.meta.id)).map((e) => [e.meta.id, e.meta.version]));
-    room = new HostRoom(net, { name, count: n, rounds, expansions: ids, versions, makeCatalog });
+    room = new HostRoom(net, { name, count: n, rounds, expansions: ids, versions: versionsOf(ids), makeCatalog });
     room.code = code;
     room.onChange(render);
     busy = '';
@@ -185,9 +185,13 @@ async function joinRoom({ name, code }) {
       if (info && !guest.problem) {
         const bad = info.expansions.filter((id) => expansions.find((e) => e.meta.id === id)?.meta.version !== info.versions[id]);
         if (bad.length) guest.problem = `カードの版がホストと違います（${bad.join('・')}）。ページを読み込み直してください。`;
-        else if (!cat || cat.forRoom !== code) { cat = makeCatalog(info.expansions); cat.forRoom = code; }
+        else {
+          const key = `${code}:${info.expansions.join(',')}`; // 部屋の中で世界が変わったら作り直す
+          if (!cat || cat.forRoom !== key) { cat = makeCatalog(info.expansions); cat.forRoom = key; }
+        }
       }
       if (guest.st && screen !== 'game' && !guest.problem) attach(guest);
+      else if (!guest.st && screen === 'game') { screen = 'lobby'; render(); } // ホストが部屋に戻した（#9）
       else render();
     });
     busy = '';
@@ -202,6 +206,17 @@ async function joinRoom({ name, code }) {
 // ホストが見つからないまま、これだけたったら「直接つながらない回線かも」と出す
 const SLOW_MS = 45000;
 
+// ホストだけが部屋の中でゲームセットを選ぶ（#9）。入った人には上の1行（人数・ラウンド・世界）で見える
+function roomSettingsHtml(info) {
+  const opt = (v, cur, label = v) => `<option value="${v}" ${Number(cur) === v ? 'selected' : ''}>${label}</option>`;
+  const counts = [2, 3, 4].filter((n) => n >= info.seats.length);
+  return `<form class="room-settings" onsubmit="return false">
+    <label>人数 <select data-room="count">${counts.map((n) => opt(n, info.count)).join('')}</select>（人が足りない席は CPU）</label>
+    <label>長さ <select data-room="rounds">${opt(8, info.rounds, 'ふつう（8ラウンド）')}${opt(6, info.rounds, '短め（6ラウンド）')}</select></label>
+    <fieldset><legend>使う世界</legend>${expansions.map((e) => `<label class="check"><input type="checkbox" data-room="exp" value="${e.meta.id}" ${info.expansions.includes(e.meta.id) ? 'checked' : ''} ${e.meta.id === 'base' ? 'disabled' : ''}> ${esc(e.meta.name)}（${e.cards.length}種類）</label>`).join('')}</fieldset>
+  </form>`;
+}
+
 function renderLobby() {
   const info = room instanceof HostRoom ? room.lobby() : room.lobbyInfo;
   const isHost = room instanceof HostRoom;
@@ -214,7 +229,7 @@ function renderLobby() {
       <ol class="seats">${seats.map((s, i) => `<li>${s ? esc(s) : '<span class="muted">（空き → 始めると CPU）</span>'}${i === 0 ? '（ホスト）' : ''}</li>`).join('')}</ol>`
     : `<p class="muted">ホストを探しています…（ホストが部屋を作っていないと見つかりません。ふつう1分くらいかかります）</p>
       ${room.since && Date.now() - room.since > SLOW_MS ? '<p class="error">まだ見つかりません。ホストとあなたのどちらかが、直接つながらない回線（越えにくい NAT）にいるのかもしれません。<a href="net-check.html" target="_blank">通信の確かめ</a>を2人とも開いて、結果を見比べてください。</p>' : ''}`}
-    ${isHost ? `<p class="muted">入る人に合言葉「${esc(room.code)}」を伝えてください。全員そろったら始めます。</p>
+    ${isHost ? `${roomSettingsHtml(info)}<p class="muted">入る人に合言葉「${esc(room.code)}」を伝えてください。全員そろったら始めます。終わったらこの部屋に戻り、つないだまま次のゲームを始められます。</p>
       <button class="primary" data-act="lobby-start">はじめる</button>`
     : (info ? '<p class="muted">ホストが始めるのを待っています…</p>' : '')}
     <p><button data-act="lobby-leave">やめる</button></p>
@@ -518,8 +533,15 @@ function endHtml() {
     <table><tr><th></th><th>名前</th><th>★の点</th><th>実り</th><th>お題カード</th><th>合計</th><th>★★★</th><th>捨てた魔素</th></tr>${rows}</table>
     <p>かかった時間：${mins} 分（${st.rounds}ラウンド）</p>
     ${session.record ? '<p class="muted">「記録をコピー」で、このゲームの操作と時間を文字にできます。チャットに貼ると、同じゲームをそのまま再現して調べられます。</p><button data-act="copy">記録をコピー</button>' : '<p class="muted">記録は部屋を作った人がコピーできます。</p>'}
-    <button class="primary" data-act="again">最初の画面へ</button>
+    ${endButtons()}
   </div></div>`;
+}
+
+// 終わった後：通信の部屋なら部屋に戻って次のゲーム、1人ならセットを選び直す（#9）
+function endButtons() {
+  if (room instanceof HostRoom) return '<button class="primary" data-act="room-back">部屋に戻る（次のゲームへ）</button>';
+  if (room) return '<p class="muted">ホストが部屋に戻すと、次のゲームの待合室に移ります。</p><button data-act="again">部屋から出る</button>';
+  return '<button class="primary" data-act="again">セットを選び直す</button>';
 }
 
 function render() {
@@ -582,6 +604,14 @@ function poolHtml() {
 }
 
 app.addEventListener('change', (ev) => {
+  const k = ev.target.dataset.room; // 部屋のゲームセット（ホストだけ）
+  if (k && room instanceof HostRoom) {
+    if (k === 'exp') {
+      const ids = expansions.map((e) => e.meta.id).filter((id) => id === 'base' || app.querySelector(`[data-room="exp"][value="${id}"]`)?.checked);
+      room.setSettings({ expansions: ids, versions: versionsOf(ids) });
+    } else room.setSettings({ [k]: Number(ev.target.value) });
+    return;
+  }
   if (poolOpen && ev.target.dataset.filter) { toggleFilter(poolState, ev.target); render(); }
 });
 
@@ -612,6 +642,14 @@ app.addEventListener('click', async (ev) => {
   if (!el) return;
   const d = el.dataset;
   if (d.act === 'lobby-leave' || d.act === 'again') return backToSetup();
+  if (d.act === 'room-back' && room instanceof HostRoom) {
+    clearTimeout(session?.timer);
+    room.backToRoom();
+    session = null;
+    st = null;
+    screen = 'lobby';
+    return render();
+  }
   if (d.act === 'lobby-start') {
     cat = room.makeCatalog(room.settings.expansions);
     const game = room.start(Math.floor(Math.random() * 1e9));

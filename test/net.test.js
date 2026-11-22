@@ -167,3 +167,31 @@ test('通信：参加者が送った操作は、送った人の席として扱�
   clearTimeout(game.timer);
   void byName; void applyMut;
 });
+
+test('部屋（#9）：部屋の中でゲームセットを変え、終わったら部屋に戻って、つないだまま次のゲームを始められる', async () => {
+  const hub = makeHub();
+  const host = new HostRoom(hub.make('H'), { name: 'ホスト', count: 2, rounds: 2, expansions: ['base'], versions: cat.versions, makeCatalog: () => cat, timing: { cpuDelay: 0, reactDelay: 0 } });
+  const guest = new GuestClient(hub.make('G'), { name: '参加者', token: 't9' });
+  await until(() => guest.lobbyInfo?.seats.length === 2);
+  host.setSettings({ count: 4, rounds: 3 });
+  await until(() => guest.lobbyInfo?.count === 4 && guest.lobbyInfo.rounds === 3);
+  host.setSettings({ count: 1 }); // 入っている人数（2）より減らせない
+  assert.equal(host.settings.count, 2);
+
+  const game = host.start(7);
+  await until(() => guest.view());
+  assert.equal(game.st.rounds, 3);
+  host.setSettings({ rounds: 6 }); // 始まっている間は変わらない
+  assert.equal(host.settings.rounds, 3);
+
+  host.backToRoom();
+  await until(() => guest.lobbyInfo && !guest.lobbyInfo.started && guest.view() === null);
+  assert.equal(host.seats.length, 2, '参加者は部屋に残る');
+
+  host.setSettings({ rounds: 2 });
+  const second = host.start(8);
+  await until(() => guest.view()?.rounds === 2);
+  assert.equal(second.st.players.length, 2);
+  assert.equal(guest.me, 1);
+  host.backToRoom();
+});
