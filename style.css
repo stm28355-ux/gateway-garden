@@ -21,6 +21,11 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--muted); font-weight: 600;
 
 .bar { display: flex; gap: 16px; align-items: center; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .bar .spacer { flex: 1; }
+.order span.now { background: var(--accent); color: #fff; border-radius: 6px; padding: 1px 6px; }
+.order span.me { font-weight: 700; }
+.cell.source { border-color: #d9822b; border-style: solid; box-shadow: 0 0 0 3px rgba(217,130,43,.35); }
+.cell.source .card { background: #fff4e6; }
+.source-note { color: #b0661c; font-weight: 700; }
 .board { display: grid; grid-template-columns: 430px minmax(560px, 1fr) 340px; gap: 16px; padding: 8px 16px 24px; align-items: start; }
 
 .goals { display: grid; gap: 6px; }

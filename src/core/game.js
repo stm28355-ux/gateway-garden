@@ -231,13 +231,13 @@ function runEffect(cat, st, pl, task) {
   switch (eff.do) {
     case 'gain': {
       const color = eff.color === 'self' ? defOf(cat, inst).element : eff.color;
-      if (color === 'any') pl.queue.unshift(...repeat({ t: 'color' }));
+      if (color === 'any') pl.queue.unshift(...repeat({ t: 'color', uid: inst.uid }));
       else addGain(pl, color, n);
       break;
     }
     case 'convert': {
       const group = ++pl.groupNext;
-      pl.queue.unshift(...repeat({ t: 'convert', to: eff.to, group }));
+      pl.queue.unshift(...repeat({ t: 'convert', to: eff.to, group, uid: inst.uid }));
       break;
     }
     case 'stageUp':
@@ -267,14 +267,15 @@ function runEffect(cat, st, pl, task) {
 
 function runTask(cat, st, pl, task) {
   if (task.t === 'eff') return runEffect(cat, st, pl, task);
+  // 選ぶ所には、効果を出している札（source）を付ける。画面で光らせるため
   if (task.t === 'color') {
-    pl.choice = { kind: 'color', options: [...ELEMENTS] };
+    pl.choice = { kind: 'color', options: [...ELEMENTS], source: task.uid };
     return;
   }
   if (task.t === 'convert') {
     const from = ELEMENTS.filter((c) => pl.mana[c] > 0 && (task.to === 'any' || c !== task.to));
     if (!from.length) return;
-    pl.choice = { kind: 'convert', to: task.to, from, group: task.group };
+    pl.choice = { kind: 'convert', to: task.to, from, group: task.group, source: task.uid };
     return;
   }
   const src = cellOfUid(pl, task.uid);
@@ -284,12 +285,12 @@ function runTask(cat, st, pl, task) {
       .filter((c) => pl.garden[c] && pl.garden[c].stage < 3 && matches(cat, pl, src, c, task.filter));
     if (!options.length) return;
     if (options.length === 1) return raiseStage(cat, pl, options[0], task.chain);
-    pl.choice = { kind: 'stageUp', options, chain: task.chain };
+    pl.choice = { kind: 'stageUp', options, chain: task.chain, source: task.uid };
     return;
   }
   if (task.t === 'move') {
     const from = areaCells(task.area, src).filter((c) => pl.garden[c] && matches(cat, pl, src, c, task.filter));
-    if (from.length) pl.choice = { kind: 'move', from };
+    if (from.length) pl.choice = { kind: 'move', from, source: task.uid };
   }
 }
 
@@ -363,13 +364,24 @@ function endRound(cat, st) {
   for (const pl of st.players) pl.status = 'waiting';
 }
 
+function autoDiscard(pl, n) {
+  for (let k = 0; k < n; k++) {
+    const c = ELEMENTS.reduce((a, b) => (pl.mana[b] > pl.mana[a] ? b : a));
+    pl.mana[c]--;
+  }
+  pl.discarded += n;
+}
+
 function progress(cat, st, p) {
   const pl = st.players[p];
   if (pl.choice || pl.queue.length) return;
   pl.chains = {};
   if (pl.status !== 'activating') return;
   const over = manaTotal(pl.mana) - limitOf(cat, pl);
-  if (over > 0) { pl.choice = { kind: 'discard', amount: over }; return; } // D4
+  if (over > 0) {
+    if (st.round < st.rounds) { pl.choice = { kind: 'discard', amount: over }; return; } // D4
+    autoDiscard(pl, over); // 最後のラウンドは色が点に関わらないので、選ばずに捨てる（貯め点は数だけを見る）
+  }
   checkGoals(cat, st, p);
   pl.status = 'done';
   pl.history = [];

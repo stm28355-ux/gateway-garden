@@ -188,6 +188,18 @@ test('黄の「貯めて点」：終わりに残った素材の数で点（#1 �
   assert.equal(limitOf(cat, st.players[0]), 10);
 });
 
+test('選ぶ所には効果を出している札が付く。最後のラウンドは選ばずに捨てる', () => {
+  const st = reactState([[3, 'しずくクラゲ']]);
+  const s = applyAction(cat, st, { type: 'done', player: 0 });
+  assert.equal(s.players[0].choice.source, s.players[0].garden[3].uid);
+  const last = reactState([[0, '灯りうさぎ']], { red: 12 });
+  last.round = last.rounds;
+  const e = applyAction(cat, last, { type: 'done', player: 0 });
+  assert.equal(e.players[0].choice, null);
+  assert.equal(e.players[0].discarded, 3); // 12＋白1 → 10
+  assert.equal(e.players[0].status, 'done');
+});
+
 test('上限を超えたら反応フェーズの終わりに選んで捨てる（D4）', () => {
   const st2 = reactState([[0, '灯りうさぎ']], { red: 10 });
   let s = applyAction(cat, st2, { type: 'done', player: 0 });

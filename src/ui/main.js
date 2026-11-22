@@ -102,13 +102,28 @@ function describe(before, a) {
   }
 }
 
+// 反応フェーズは全員同時なので、ほかの人がしたことはラウンドが終わるまで見せない（後出しを防ぐ）。
+// 始まった時の盤面を reactView に取っておき、ほかの人の欄と目標札はそれで描く。
+let reactView = null;
+let hiddenLog = [];
+
 function apply(a) {
   const before = st;
   st = applyAction(cat, st, a);
   record.actions.push({ t: Date.now() - record.start, a });
   const line = describe(before, a);
-  if (line) log.push(line);
+  if (line) {
+    if (before.phase === 'react' && a.player !== ME && a.type !== 'done') hiddenLog.push(line);
+    else log.push(line);
+  }
+  if (before.phase !== 'react' && st.phase === 'react') {
+    reactView = { players: structuredClone(st.players), claims: structuredClone(st.claims) };
+    hiddenLog = [];
+  }
   if (st.round !== before.round || (st.phase === 'end' && before.phase !== 'end')) {
+    if (hiddenLog.length) log.push('（反応フェーズでほかの人がしたこと）', ...hiddenLog);
+    hiddenLog = [];
+    reactView = null;
     record.roundTimes.push(Date.now() - record.start);
     for (const g of st.goals) {
       for (const c of st.claims[g]) {
@@ -184,9 +199,16 @@ function detailHtml() {
   </div>`;
 }
 
+// 反応フェーズ中は、始まった時の取り方＋自分の分だけを見せる
+function claimsShown(g) {
+  if (!reactView) return st.claims[g];
+  const base = reactView.claims[g];
+  return [...base, ...st.claims[g].filter((x) => x.player === ME && !base.some((y) => y.player === ME))];
+}
+
 function goalsHtml() {
   return st.goals.map((g) => {
-    const claims = st.claims[g];
+    const claims = claimsShown(g);
     const first = claims.length ? Math.min(...claims.map((x) => x.round)) : null;
     const who = claims.map((x) => `${esc(nameOf(x.player))}${x.round === first ? '（5点）' : '（3点）'}`).join('・');
     return `<div class="goal"><b>${GOALS[g].name}</b><span>${GOALS[g].text}</span><small>${who || 'まだ誰も'}</small></div>`;
@@ -262,12 +284,15 @@ function marketHtml() {
   }).join('');
 }
 
+const viewOf = (p) => (p !== ME && reactView ? reactView.players[p] : st.players[p]);
+
 function gardenHtml(p, mini = false) {
-  const pl = st.players[p];
+  const pl = viewOf(p);
   const ch = p === ME ? pl.choice : null;
   return `<div class="garden ${mini ? 'mini' : ''}">${pl.garden.map((x, i) => {
     let cls = '';
     if (p === ME) {
+      if (ch?.source && x?.uid === ch.source) cls += ' source';
       if (ch?.kind === 'stageUp' && ch.options.includes(i)) cls = 'target';
       if (ch?.kind === 'move' && (ui.moveFrom === null ? ch.from.includes(i) : i !== ui.moveFrom)) cls = 'target';
       if (ui.cell === i) cls += ' sel';
@@ -284,7 +309,11 @@ function gardenHtml(p, mini = false) {
 function actionPanel() {
   const pl = st.players[ME];
   if (st.phase === 'end') return '';
-  if (pl.choice) return `${choicePanel(pl)}${pl.history?.length ? '<p><button data-act="undo">1つ戻す</button></p>' : ''}`;
+  if (pl.choice) {
+    const src = pl.garden.find((x) => x && x.uid === pl.choice.source);
+    const from = src ? `<p class="source-note">「${esc(defById(src.id).name)}」（マス${pl.garden.indexOf(src) + 1}・光っている札）の効果</p>` : '';
+    return `${from}${choicePanel(pl)}${pl.history?.length ? '<p><button data-act="undo">1つ戻す</button></p>' : ''}`;
+  }
   if (myDraftTurn()) return '<p>始まりの札を、場から1枚選んでください（無料）。</p>';
   if (st.phase === 'draft') return `<p class="muted">${esc(nameOf(st.draftOrder[st.turn]))} が始まりの札を選んでいます…</p>`;
   const waiting = pl.pending.length
@@ -362,12 +391,24 @@ function choicePanel(pl) {
 }
 
 function opponentsHtml() {
-  return st.players.filter((p) => p.index !== ME).map((pl) => {
-    const s = scoreOf(cat, st, pl.index);
-    const status = st.phase === 'react' ? (pl.status === 'done' ? '終えた' : '考え中') : '';
+  return st.players.filter((p) => p.index !== ME).map((live) => {
+    const pl = viewOf(live.index);
+    const s = scoreOf(cat, reactView ? { ...st, players: reactView.players, claims: reactView.claims } : st, pl.index);
+    const status = st.phase === 'react' ? (live.status === 'done' ? '終えた' : '考え中') : '';
     return `<div class="opp"><div class="opp-head"><b>${esc(pl.name)}</b><span>${s.total}点 ${status}</span></div>
       <div class="mana">${manaRow(pl.mana)}${pl.pending.length ? `<span class="muted">手元${pl.pending.length}枚</span>` : ''}</div>${gardenHtml(pl.index, true)}</div>`;
   }).join('');
+}
+
+// 拾う順（このラウンド）と、次のラウンドの先番
+function orderHtml() {
+  if (st.phase === 'end') return '';
+  const order = st.phase === 'draft' ? st.draftOrder : pickOrder(st);
+  const now = st.phase === 'draft' || st.phase === 'pick' ? order[st.turn] : -1;
+  const names = order.map((p) => `<span class="${p === now ? 'now' : ''} ${p === ME ? 'me' : ''}">${esc(nameOf(p))}</span>`).join(' → ');
+  const label = st.phase === 'draft' ? '始まりの札を取る順' : '拾う順';
+  const next = st.round < st.rounds ? `<span class="muted">次のラウンドの先番：<b>${esc(nameOf((st.firstPlayer + 1) % st.players.length))}</b></span>` : '<span class="muted">最後のラウンド</span>';
+  return `<span class="order">${label}：${names}</span>${next}`;
 }
 
 function phaseName() {
@@ -395,7 +436,7 @@ function render() {
   <header class="bar">
     <b>Gateway Garden</b>
     <span>ラウンド ${st.round} / ${st.rounds}・${phaseName()}</span>
-    <span class="muted">先番：${esc(nameOf(st.firstPlayer))}</span>
+    ${orderHtml()}
     <span class="spacer"></span>
     <button data-act="copy">記録をコピー</button>
   </header>
