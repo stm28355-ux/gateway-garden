@@ -10,6 +10,8 @@ export const BASE_LIMIT = 10;  // D4
 export const MARKET_SIZE = 6;  // D7
 export const GOAL_COUNT = 3;   // D13
 export const BUNDLE_SIZE = 3;  // D6
+export const MAX_BUYS = 2;     // フェーズ4：1回の拾いで札は2枚まで。2枚目は値段に「任1」が足される
+export const HAND_LIMIT = 2;   // フェーズ4：置かずに持っておける札は2枚まで（保持）
 
 export class GameError extends Error {}
 const fail = (msg) => { throw new GameError(msg); };
@@ -85,7 +87,7 @@ function alwaysSum(cat, pl, doName, targetCell) {
 export function growCost(cat, pl, cell) {
   const inst = pl.garden[cell];
   const base = GROWTH[defOf(cat, inst).growth][inst.stage - 1];
-  return Math.max(1, base - alwaysSum(cat, pl, 'discount', cell)); // 読み方4：最低1個
+  return Math.max(0, base - alwaysSum(cat, pl, 'discount', cell)); // 読み方4（フェーズ4で変更）：0個まで下がる
 }
 export const limitOf = (cat, pl) => BASE_LIMIT + alwaysSum(cat, pl, 'limit');
 
@@ -139,8 +141,8 @@ export function createGame(cat, { players, rounds = 8, seed = 1, copies = 2 }) {
     versions: cat.versions,
     players: players.map((p, i) => ({
       index: i, name: p.name, cpu: p.cpu ?? null,
-      mana: emptyMana(), incoming: emptyMana(), garden: Array(9).fill(null), pending: [],
-      status: 'waiting', queue: [], choice: null, used: [], chains: {}, chainNext: 0, groupNext: 0,
+      mana: emptyMana(), garden: Array(9).fill(null), pending: [],
+      status: 'waiting', queue: [], choice: null, used: [], chains: {}, chainNext: 0, groupNext: 0, history: [],
       bonus: 0, discarded: 0,
     })),
     deck: [], market: [], bundles: [], discardPile: [], goals: [], claims: {}, result: null,
@@ -169,7 +171,7 @@ export function scoreOf(cat, st, p) {
     for (const e of effectsOf(cat, inst)) {
       if (e.when !== 'end' || !condOk(cat, pl, cell, e)) continue;
       if (e.do === 'score') end += e.amount * multOf(cat, pl, cell, e);
-      if (e.do === 'hoard') end += Math.floor((manaTotal(pl.mana) + manaTotal(pl.incoming)) / e.every) * e.amount * multOf(cat, pl, cell, e);
+      if (e.do === 'hoard') end += Math.floor(manaTotal(pl.mana) / e.every) * e.amount * multOf(cat, pl, cell, e);
     }
   });
   let goals = 0;
@@ -197,7 +199,7 @@ function finish(cat, st) {
 const cellOfUid = (pl, uid) => pl.garden.findIndex((x) => x?.uid === uid);
 
 function addGain(pl, color, n) {
-  (pl.status === 'acting' ? pl.incoming : pl.mana)[color] += n; // D3：反応中に得た素材は次のラウンドから
+  pl.mana[color] += n; // フェーズ4で D3 を変えた：反応フェーズで得た魔素はその場で使える
 }
 
 function newChain(pl) {
@@ -342,7 +344,7 @@ function resolveChoice(cat, st, pl, value) {
 
 function startReact(st) {
   st.phase = 'react';
-  for (const pl of st.players) { pl.status = 'acting'; pl.used = []; }
+  for (const pl of st.players) { pl.status = 'acting'; pl.used = []; pl.history = []; }
 }
 
 function checkGoals(cat, st, p) {
@@ -370,6 +372,7 @@ function progress(cat, st, p) {
   if (over > 0) { pl.choice = { kind: 'discard', amount: over }; return; } // D4
   checkGoals(cat, st, p);
   pl.status = 'done';
+  pl.history = [];
   if (st.players.every((q) => q.status === 'done')) endRound(cat, st);
 }
 
@@ -380,6 +383,15 @@ function takeFromMarket(st, i) {
   if (!card) fail('その場所に札がない');
   st.market[i] = draw(st);
   return card;
+}
+
+export const buysOf = (a) => a.buys ?? (a.buy ? [a.buy] : []);
+
+// k 枚目（0 から）の値段。2枚目は「任」が1つ増える
+export function buyCost(cat, card, k) {
+  const cost = { ...cat.cards[card.id].cost };
+  if (k > 0) cost.any = (cost.any ?? 0) + k;
+  return cost;
 }
 
 function doPick(cat, st, a) {
@@ -415,14 +427,18 @@ function doPick(cat, st, a) {
     if (taken.includes(color)) pl.mana[color] += multOf(cat, pl, cell, eff);
   }
   st.bundles[a.bundle] = randomBundle(st);
-  if (a.buy) {
-    const card = st.market[a.buy.market];
+  const buys = buysOf(a);
+  if (buys.length > MAX_BUYS) fail(`札は1回に${MAX_BUYS}枚まで`);
+  if (new Set(buys.map((b) => b.market)).size !== buys.length) fail('同じ札は2回取れない');
+  buys.forEach((b, k) => { // 場所は拾う前の場で数え、取ってから補充する
+    const card = st.market[b.market];
     if (!card) fail('その場所に札がない');
-    const cost = cat.cards[card.id].cost;
-    if (!canPay(cost, a.buy.pay, pl.mana)) fail('払う素材が正しくない');
-    for (const c of ELEMENTS) pl.mana[c] -= a.buy.pay[c] ?? 0;
-    pl.pending.push(takeFromMarket(st, a.buy.market));
-  }
+    const cost = buyCost(cat, card, k);
+    if (!canPay(cost, b.pay, pl.mana)) fail('払う魔素が正しくない');
+    for (const c of ELEMENTS) pl.mana[c] -= b.pay[c] ?? 0;
+    pl.pending.push(card);
+  });
+  for (const b of buys) st.market[b.market] = draw(st);
   st.turn++;
   if (st.turn === st.players.length) startReact(st);
 }
@@ -435,9 +451,28 @@ function needActing(st, p) {
   return pl;
 }
 
+// やり直し（フェーズ4）：反応フェーズは自分の庭だけを触るので、自分の分だけ前に戻せる。
+// 人の操作だけを積む（CPU は試すときに何度も動かすので積まない）。
+const UNDOABLE = ['place', 'grow', 'use', 'choose', 'done'];
+
+function snapshot(st, p) {
+  const pl = st.players[p];
+  const { history, ...rest } = pl;
+  history.push({ pl: structuredClone(rest), discardLen: st.discardPile.length });
+}
+
 export function applyMut(cat, st, a) {
   const p = a.player;
+  const me = st.players[p];
+  if (st.phase === 'react' && me && !me.cpu && UNDOABLE.includes(a.type) && ['acting', 'activating'].includes(me.status)) snapshot(st, p);
   switch (a.type) {
+    case 'undo': {
+      if (st.phase !== 'react' || !me?.history?.length || !['acting', 'activating'].includes(me.status)) fail('戻せる操作がない');
+      const snap = me.history.pop();
+      st.players[p] = { ...snap.pl, history: me.history };
+      st.discardPile.length = snap.discardLen;
+      return st;
+    }
     case 'draft': {
       if (st.phase !== 'draft') fail('始まりの札を取る時ではない');
       if (st.draftOrder[st.turn] !== p) fail('取る番ではない');
@@ -489,9 +524,8 @@ export function applyMut(cat, st, a) {
     }
     case 'done': {
       const pl = needActing(st, p);
-      if (pl.pending.length) fail('まだ置いていない札がある');
+      if (pl.pending.length > HAND_LIMIT) fail(`置かずに持っておける札は${HAND_LIMIT}枚まで`);
       pl.status = 'activating';
-      for (const c of ELEMENTS) { pl.mana[c] += pl.incoming[c]; pl.incoming[c] = 0; }
       const chain = newChain(pl);
       for (const inst of pl.garden) { // 読み方7：左上から右下へ
         if (!inst) continue;

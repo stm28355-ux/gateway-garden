@@ -67,15 +67,9 @@
 
   { "id": "base-011", "name": "庭番カメ", "element": "white", "role": "boost", "cost": { "white": 3 }, "growth": "flat",
     "stages": [
-      { "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "adjacent" }] },
-      { "points": 1, "effects": [
-        { "when": "always", "do": "discount", "amount": 1, "area": "cross", "at": "center" },
-        { "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "at": "edge" },
-        { "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "at": "corner" } ] },
-      { "points": 3, "effects": [
-        { "when": "always", "do": "discount", "amount": 1, "area": "cross", "at": "center" },
-        { "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "at": "edge" },
-        { "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "at": "corner" } ] } ] },
+      { "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "filter": { "element": "white" } }] },
+      { "points": 1, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "adjacent" }] },
+      { "points": 3, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "cross" }] } ] },
   { "id": "base-012", "name": "応援ダヌキ", "element": "red", "role": "boost", "cost": { "red": 2 }, "growth": "early",
     "stages": [
       { "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "filter": { "element": "red" } }] },

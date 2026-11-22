@@ -1,5 +1,8 @@
 // 試作画面（フェーズ4）：1人＋CPU。ルールの処理は src/core、ここは描くことと操作を渡すことだけ。
-import { buildCatalog, createGame, applyAction, whoActs, pickOrder, autoPay, growCost, limitOf, manaTotal, scoreOf, GameError } from '../core/game.js';
+import {
+  buildCatalog, createGame, applyAction, whoActs, pickOrder, autoPay, buyCost, buysOf, growCost, limitOf, manaTotal, scoreOf, GameError,
+  MAX_BUYS, HAND_LIMIT,
+} from '../core/game.js';
 import { cpuAction, wantOf } from '../core/cpu.js';
 import { ELEMENTS } from '../core/schema.js';
 import { GOALS } from '../core/goals.js';
@@ -18,7 +21,7 @@ let hover = null;
 let error = '';
 let cpuTimer = null;
 
-const freshUi = () => ({ bundle: null, market: null, swapCell: null, give: null, swap: null, pending: null, cell: null, convFrom: null, moveFrom: null, discard: {} });
+const freshUi = () => ({ bundle: null, markets: [], anyPick: {}, swapCell: null, give: null, swap: null, pending: null, cell: null, convFrom: null, moveFrom: null, discard: {} });
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const nameOf = (p) => st.players[p].name;
 const defById = (id) => cat.cards[id];
@@ -58,9 +61,9 @@ function renderSetup() {
 
 function rulesHtml() {
   return `<ol>
-    <li><b>拾うフェーズ（順番に）</b>：場の束を1つ拾う（3個の魔素が手元に入る）。そのあと、手持ちの魔素で場の札を1枚まで取れる。</li>
-    <li><b>反応フェーズ（全員同時）</b>：取った札を庭に置く。札と同じ色の魔素を乗せて段階を上げる（何回でも）。「このラウンドを終える」で、庭の札が左上から順に発動する。</li>
-    <li>反応フェーズで得た魔素は、次のラウンドから使える。持てる魔素は10個まで（終わりにあふれた分を捨てる）。</li>
+    <li><b>拾うフェーズ（順番に）</b>：場の束を1つ拾う（3個の魔素が手元に入る）。そのあと、手持ちの魔素で場の札を2枚まで取れる（2枚目は値段に任1が足される）。「任」はどの色で払ってもよい。</li>
+    <li><b>反応フェーズ（全員同時）</b>：取った札を庭に置く（2枚まで置かずに持っておける）。札と同じ色の魔素を乗せて段階を上げる（何回でも）。「このラウンドを終える」で、庭の札が左上から順に発動する。終えるまでは「1つ戻す」でやり直せる。</li>
+    <li>反応フェーズで得た魔素は、その場で使える。持てる魔素は10個まで（ラウンドの終わりにあふれた分を捨てる）。育てる値段は強化で0個まで下がる。</li>
     <li>導きの札は、段階2から拾い方を曲げる（足す・入れ替える）。</li>
     <li>${'8'}ラウンド（短めは6）で終わり。札の段階の点、終わりの効果、目標札（一番乗り5点・あとから3点）の合計で比べる。</li>
   </ol>`;
@@ -87,8 +90,10 @@ function describe(before, a) {
     case 'pick': {
       const b = before.bundles[a.bundle].map((c) => COLOR_JA[c]).join('');
       const bends = a.bends?.length ? `（${a.bends.map((x) => (x.kind === 'swap' ? '入れ替え' : '足す')).join('・')}）` : '';
-      return `${who}：束${a.bundle + 1}（${b}）を拾った${bends}${a.buy ? `、${card(before.market[a.buy.market])}を取った` : ''}`;
+      const got = buysOf(a).map((x) => card(before.market[x.market])).join('と');
+      return `${who}：束${a.bundle + 1}（${b}）を拾った${bends}${got ? `、${got}を取った` : ''}`;
     }
+    case 'undo': return `${who}：1つ戻した`;
     case 'place': return `${who}：${card(before.players[a.player].pending[a.pending])}をマス${a.cell + 1}に置いた`;
     case 'grow': return `${who}：${card(before.players[a.player].garden[a.cell])}を段階${before.players[a.player].garden[a.cell].stage + 1}に育てた`;
     case 'use': return `${who}：${card(before.players[a.player].garden[a.cell])}を使った`;
@@ -150,8 +155,8 @@ function schedule() {
 
 const manaDot = (c, extra = '') => `<span class="dot ${c}" ${extra}></span>`;
 
-function manaRow(m, incoming) {
-  return ELEMENTS.map((c) => `<span class="mana-item">${manaDot(c)}<b>${m[c]}</b>${incoming?.[c] ? `<small>+${incoming[c]}</small>` : ''}</span>`).join('');
+function manaRow(m) {
+  return ELEMENTS.map((c) => `<span class="mana-item">${manaDot(c)}<b>${m[c]}</b></span>`).join('');
 }
 
 function cardHtml(c, { stage = null, attrs = '', cls = '', showCost = false, cost = null } = {}) {
@@ -199,25 +204,43 @@ function bendCells(kind) {
 function pickBase() {
   const bends = bendCells('add').map((cell) => ({ cell, kind: 'add' }));
   if (ui.swap) bends.unshift(ui.swap);
-  return { type: 'pick', player: ME, bundle: ui.bundle, bends, buy: null };
+  return { type: 'pick', player: ME, bundle: ui.bundle, bends, buys: [] };
 }
 
+// 取る札（2枚まで）と払い方。「任」の色は ui.anyPick[k] で選べる（なければ自動）
 function pickPreview() {
   if (ui.bundle === null) return null;
   const base = pickBase();
   let after;
   try { after = applyAction(cat, st, base); } catch (e) { return { error: e.message }; }
-  const mana = after.players[ME].mana;
-  let action = base;
-  let pay = null;
-  if (ui.market !== null) {
-    const card = st.market[ui.market];
-    pay = card ? autoPay(defById(card.id).cost, mana, wantOf(cat, st.players[ME])) : null;
-    if (!pay) return { base, mana, error: '取った後の魔素では、この札は払えない' };
-    action = { ...base, buy: { market: ui.market, pay } };
-    return { action, mana: applyAction(cat, st, action).players[ME].mana, pay };
+  const left = { ...after.players[ME].mana };
+  const buys = [];
+  const lines = [];
+  for (const [k, i] of ui.markets.entries()) {
+    const card = st.market[i];
+    const cost = buyCost(cat, card, k);
+    const auto = autoPay(cost, left, wantOf(cat, st.players[ME]));
+    if (!auto) return { mana: after.players[ME].mana, error: `「${defById(card.id).name}」は払えない（${k ? '2枚目は任1が足される' : '魔素が足りない'}）`, lines };
+    let pay = auto;
+    const anyN = cost.any ?? 0;
+    if (anyN) {
+      const pick = ui.anyPick[k];
+      if (pick?.length === anyN) {
+        pay = Object.fromEntries(ELEMENTS.map((c) => [c, (cost[c] ?? 0) + pick.filter((x) => x === c).length]));
+      } else {
+        ui.anyPick[k] = ELEMENTS.flatMap((c) => Array(auto[c] - (cost[c] ?? 0)).fill(c));
+      }
+    }
+    for (const c of ELEMENTS) left[c] -= pay[c];
+    buys.push({ market: i, pay });
+    lines.push({ k, card, cost, anyN });
   }
-  return { action, mana };
+  const action = { ...base, buys };
+  try {
+    return { action, mana: applyAction(cat, st, action).players[ME].mana, lines };
+  } catch (e) {
+    return { mana: after.players[ME].mana, error: e.message, lines };
+  }
 }
 
 function bundlesHtml() {
@@ -232,7 +255,11 @@ function bundlesHtml() {
 
 function marketHtml() {
   const can = myPickTurn() || myDraftTurn();
-  return st.market.map((c, i) => (c ? cardHtml(c, { showCost: true, cls: `${can ? 'can' : ''} ${ui.market === i ? 'sel' : ''}`, attrs: `data-act="market" data-i="${i}"` }) : '<div class="card empty">（なし）</div>')).join('');
+  return st.market.map((c, i) => {
+    if (!c) return '<div class="card empty">（なし）</div>';
+    const order = ui.markets.indexOf(i);
+    return cardHtml(c, { showCost: true, cls: `${can ? 'can' : ''} ${order >= 0 ? 'sel' : ''}`, attrs: `data-act="market" data-i="${i}"${order >= 0 ? ` data-order="${order + 1}"` : ''}` });
+  }).join('');
 }
 
 function gardenHtml(p, mini = false) {
@@ -257,11 +284,11 @@ function gardenHtml(p, mini = false) {
 function actionPanel() {
   const pl = st.players[ME];
   if (st.phase === 'end') return '';
-  if (pl.choice) return choicePanel(pl);
+  if (pl.choice) return `${choicePanel(pl)}${pl.history?.length ? '<p><button data-act="undo">1つ戻す</button></p>' : ''}`;
   if (myDraftTurn()) return '<p>始まりの札を、場から1枚選んでください（無料）。</p>';
   if (st.phase === 'draft') return `<p class="muted">${esc(nameOf(st.draftOrder[st.turn]))} が始まりの札を選んでいます…</p>`;
   const waiting = pl.pending.length
-    ? `<p class="muted">反応フェーズで置く札：${pl.pending.map((c) => `<span data-card="${c.id}" data-stage="1">「${esc(defById(c.id).name)}」</span>`).join('')}</p>` : '';
+    ? `<p class="muted">手元の札（反応フェーズで置く）：${pl.pending.map((c) => `<span data-card="${c.id}" data-stage="1">「${esc(defById(c.id).name)}」</span>`).join('')}</p>` : '';
   if (st.phase === 'pick') {
     if (!myPickTurn()) return `<p class="muted">${esc(nameOf(pickOrder(st)[st.turn]))} が拾っています…（場を見て次の手を考えられます）</p>${waiting}`;
     const pv = pickPreview();
@@ -269,14 +296,19 @@ function actionPanel() {
     const swapUi = swaps.length && ui.bundle !== null
       ? `<p>入れ替え（${swaps.map((c) => esc(defById(pl.garden[c].id).name)).join('・')}）：${ui.swap ? `束${ui.bundle + 1}の${ui.swap.give + 1}番目 ⇔ 束${ui.swap.other + 1}の${ui.swap.otherIdx + 1}番目 <button data-act="swap-clear">やめる</button>` : (ui.swapCell === null ? `<button data-act="swap-start" data-cell="${swaps[0]}">使う</button>` : (ui.give === null ? '取る束の、替えたい魔素を押す' : '替える相手（別の束）の魔素を押す'))}</p>` : '';
     const adds = bendCells('add');
-    return `<p><b>あなたの番</b>：束を1つ選び、取りたい札があれば場の札を選んで「拾う」。</p>${waiting}
+    const buyLines = (pv?.lines ?? []).map(({ k, card, cost, anyN }) => {
+      const fixed = ELEMENTS.filter((c) => cost[c]).map((c) => `${COLOR_JA[c]}${cost[c]}`).join('・');
+      const chips = anyN ? `　任の払い：${(ui.anyPick[k] ?? []).map((c, j) => `<button class="chip" data-act="anychip" data-k="${k}" data-j="${j}" title="押すと色が変わる">${manaDot(c)}</button>`).join('')}` : '';
+      return `<p>${k + 1}枚目「${esc(defById(card.id).name)}」：${fixed || '―'}${anyN ? `${fixed ? '・' : ''}任${anyN}` : ''}${chips}</p>`;
+    }).join('');
+    return `<p><b>あなたの番</b>：束を1つ選び、取りたい札があれば場の札を2枚まで選んで「拾う」（2枚目は任1が足される）。</p>${waiting}
       ${adds.length ? `<p class="muted">足す（${adds.map((c) => esc(defById(pl.garden[c].id).name)).join('・')}）は自動で使います。</p>` : ''}
       ${swapUi}
-      ${pv?.mana ? `<p>拾った後：${manaRow(pv.mana)}</p>` : ''}
-      ${pv?.pay ? `<p>払う：${ELEMENTS.filter((c) => pv.pay[c]).map((c) => `${COLOR_JA[c]}${pv.pay[c]}`).join('・')}</p>` : ''}
+      ${buyLines}
+      ${pv?.mana ? `<p>拾って払った後：${manaRow(pv.mana)}</p>` : ''}
       ${pv?.error ? `<p class="error">${esc(pv.error)}</p>` : ''}
-      <button class="primary" data-act="pick" ${pv?.action && !pv.error ? '' : 'disabled'}>拾う${ui.market !== null ? '（札も取る）' : ''}</button>
-      ${ui.market !== null ? '<button data-act="unbuy">札は取らない</button>' : ''}`;
+      <button class="primary" data-act="pick" ${pv?.action && !pv.error ? '' : 'disabled'}>拾う${ui.markets.length ? `（札${ui.markets.length}枚も取る）` : ''}</button>
+      ${ui.markets.length ? '<button data-act="unbuy">札は取らない</button>' : ''}`;
   }
   if (st.phase === 'react') {
     if (pl.status === 'done') return '<p class="muted">このラウンドは終えました。ほかの人を待っています…</p>';
@@ -291,9 +323,12 @@ function actionPanel() {
         ${cost !== null ? `<button class="primary" data-act="grow" ${pl.mana[d.element] >= cost ? '' : 'disabled'}>育てる（${COLOR_JA[d.element]}${cost}）</button>` : '段階3です'}
         ${hasUse ? `<button data-act="use" ${pl.used.includes(x.uid) ? 'disabled' : ''}>使う</button>` : ''}</p>`;
     }
-    return `${pend ? `<p><b>置く札</b>：札を選んで、庭のマスを押す${pl.garden.every(Boolean) ? '（庭が埋まっているので置き換え）' : ''}</p><div class="row">${pend}</div>` : ''}
+    const over = pl.pending.length > HAND_LIMIT;
+    return `${pend ? `<p><b>手元の札</b>：札を選んで、庭のマスを押すと置く${pl.garden.every(Boolean) ? '（庭が埋まっているので置き換え）' : ''}。置かずに${HAND_LIMIT}枚まで持っておける。</p><div class="row">${pend}</div>` : ''}
       <p>庭の札を押すと、育てる・使うができます。</p>${sel}
-      <button class="primary" data-act="done" ${pl.pending.length ? 'disabled' : ''}>このラウンドを終える（発動）</button>`;
+      <button class="primary" data-act="done" ${over ? 'disabled' : ''}>このラウンドを終える（発動）</button>
+      <button data-act="undo" ${pl.history?.length ? '' : 'disabled'}>1つ戻す</button>
+      ${over ? `<p class="error">手元の札が${HAND_LIMIT}枚を超えています。置いてから終えてください。</p>` : ''}`;
   }
   return '';
 }
@@ -331,7 +366,7 @@ function opponentsHtml() {
     const s = scoreOf(cat, st, pl.index);
     const status = st.phase === 'react' ? (pl.status === 'done' ? '終えた' : '考え中') : '';
     return `<div class="opp"><div class="opp-head"><b>${esc(pl.name)}</b><span>${s.total}点 ${status}</span></div>
-      <div class="mana">${manaRow(pl.mana, pl.incoming)}</div>${gardenHtml(pl.index, true)}</div>`;
+      <div class="mana">${manaRow(pl.mana)}${pl.pending.length ? `<span class="muted">手元${pl.pending.length}枚</span>` : ''}</div>${gardenHtml(pl.index, true)}</div>`;
   }).join('');
 }
 
@@ -372,7 +407,7 @@ function render() {
     </div>
     <div class="col-mid">
       <div class="me-head"><h2>${esc(pl.name)} の庭</h2><span>${me.total}点（段階${me.stage}・終わり${me.end}・目標${me.goals}）</span></div>
-      <div class="mana big">${manaRow(pl.mana, pl.incoming)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}${manaTotal(pl.incoming) ? `（次のラウンドに +${manaTotal(pl.incoming)}）` : ''}</span></div>
+      <div class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></div>
       ${gardenHtml(ME)}
       <div class="panel">${error ? `<p class="error">${esc(error)}</p>` : ''}${actionPanel()}</div>
     </div>
@@ -411,12 +446,27 @@ app.addEventListener('click', async (ev) => {
     case 'again': st = null; render(); return;
     case 'market':
       if (myDraftTurn()) return act({ type: 'draft', player: ME, market: n('i') });
-      if (myPickTurn()) ui.market = ui.market === n('i') ? null : n('i');
+      if (myPickTurn()) {
+        const i = n('i');
+        ui.markets = ui.markets.includes(i) ? ui.markets.filter((x) => x !== i) : [...ui.markets, i].slice(-MAX_BUYS);
+        ui.anyPick = {};
+      }
       break;
-    case 'unbuy': ui.market = null; break;
+    case 'unbuy': ui.markets = []; ui.anyPick = {}; break;
+    case 'anychip': { // 「任」の払いの色を、払える次の色へ
+      const list = ui.anyPick[n('k')];
+      const start = list[n('j')];
+      for (let step = 1; step <= ELEMENTS.length; step++) {
+        list[n('j')] = ELEMENTS[(ELEMENTS.indexOf(start) + step) % ELEMENTS.length];
+        const pv = pickPreview();
+        if (pv?.action && !pv.error) break;
+      }
+      break;
+    }
+    case 'undo': return act({ type: 'undo', player: ME });
     case 'bundle':
       if (!myPickTurn() || ui.swapCell !== null) break;
-      ui.bundle = n('b'); ui.swap = null; ui.give = null;
+      ui.bundle = n('b'); ui.swap = null; ui.give = null; ui.anyPick = {};
       break;
     case 'dot':
       if (!myPickTurn()) break;
@@ -429,7 +479,7 @@ app.addEventListener('click', async (ev) => {
         }
         break;
       }
-      ui.bundle = n('b'); ui.swap = null;
+      ui.bundle = n('b'); ui.swap = null; ui.anyPick = {};
       break;
     case 'swap-start': ui.swapCell = n('cell'); ui.swap = null; ui.give = null; break;
     case 'swap-clear': ui.swap = null; ui.swapCell = null; ui.give = null; break;

@@ -3,7 +3,7 @@
 import { ELEMENTS } from './schema.js';
 import { GOALS } from './goals.js';
 import {
-  applyMut, autoPay, defOf, stageOf, growCost, limitOf, manaTotal, pickOrder, scoreOf, emptyMana, countIn,
+  applyMut, autoPay, buyCost, defOf, stageOf, growCost, limitOf, pickOrder, scoreOf, emptyMana, countIn,
 } from './game.js';
 
 const W = { prod: 0.45, mana: 0.5, spare: 0.15, growth: 0.6, goal: 4 }; // 評価の重み（調整で直す）
@@ -51,7 +51,7 @@ export function valueOf(cat, st, p) {
     let need = 0;
     let rest = 0;
     for (const c of ELEMENTS) {
-      const have = pl.mana[c] + pl.incoming[c];
+      const have = pl.mana[c];
       need += Math.min(have, want[c]);
       rest += Math.max(0, have - want[c]);
     }
@@ -222,11 +222,28 @@ function pickCandidates(cat, st, p) {
       const base = { type: 'pick', player: p, bundle: b, bends, buy: null };
       out.push(base);
       const after = applyMut(cat, light(st), base).players[p].mana;
-      st.market.forEach((card, i) => {
-        if (!card) return;
-        const pay = autoPay(cat.cards[card.id].cost, after, want);
-        if (pay) out.push({ ...base, buy: { market: i, pay } });
-      });
+      const payFor = (idxs) => { // 順に払えるか試す。2枚目は値段に任1が足される
+        const left = { ...after };
+        const buys = [];
+        for (const [k, i] of idxs.entries()) {
+          const pay = autoPay(buyCost(cat, st.market[i], k), left, want);
+          if (!pay) return null;
+          for (const c of ELEMENTS) left[c] -= pay[c];
+          buys.push({ market: i, pay });
+        }
+        return buys;
+      };
+      const idx = st.market.map((c, i) => (c ? i : -1)).filter((i) => i >= 0);
+      for (const i of idx) {
+        const buys = payFor([i]);
+        if (!buys) continue;
+        out.push({ ...base, buys });
+        for (const j of idx) {
+          if (j <= i) continue;
+          const two = payFor([i, j]) ?? payFor([j, i]);
+          if (two) out.push({ ...base, buys: two });
+        }
+      }
     }
   });
   return out;

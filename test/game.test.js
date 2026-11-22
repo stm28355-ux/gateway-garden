@@ -65,17 +65,31 @@ test('支払い：決まった色と「任」', () => {
   assert.equal(autoPay({ green: 1 }, mana), null);
 });
 
-test('育てる値段は上がり方どおり、強化で下がっても最低1個（読み方4）', () => {
+test('育てる値段は上がり方どおり、強化で0個まで下がる（読み方4・フェーズ4）', () => {
   const st = reactState([[4, '芽吹きリス'], [1, '庭師モグラ'], [3, '応援ダヌキ', 2]]);
   const pl = st.players[0];
   // 晩成 3 から、モグラ（隣の緑-1）とタヌキ段階2（隣の札-1）で 1
   assert.equal(growCost(cat, pl, 4), 1);
   assert.equal(growCost(cat, pl, 1), 3, 'モグラ（マス1）はタヌキ（マス3）の隣ではないので晩成の3のまま');
-  pl.garden[0] = { uid: 2000, id: byName(cat, '蜜運びアリ'), stage: 2 }; // マス1 と マス3 の隣で、もう-1
-  assert.equal(growCost(cat, pl, 4), 1, '0 になっても最低1');
+  pl.garden[5] = { uid: 2000, id: byName(cat, '蜜運びアリ'), stage: 2 }; // マス4 の隣で、もう-1
+  pl.garden[7] = { uid: 2001, id: byName(cat, '水やりカエル'), stage: 2 }; // さらに-1 しても 0 で止まる
+  assert.equal(growCost(cat, pl, 4), 0);
+  pl.mana.green = 0;
+  const s = applyAction(cat, st, { type: 'grow', player: 0, cell: 4 });
+  assert.equal(s.players[0].garden[4].stage, 2, '0個なら魔素なしで育てられる');
 });
 
-test('育てると段階が上がり、素材は次のラウンドに回る（D3）', () => {
+test('庭番カメ：段階1は隣の白、段階2は隣、段階3は同じ行と列', () => {
+  const st = reactState([[0, '庭番カメ'], [1, '灯りうさぎ'], [3, '火の粉トカゲ'], [2, '芽吹きリス']]);
+  const pl = st.players[0];
+  assert.deepEqual([growCost(cat, pl, 1), growCost(cat, pl, 3), growCost(cat, pl, 2)], [0, 2, 3]);
+  pl.garden[0].stage = 2;
+  assert.deepEqual([growCost(cat, pl, 1), growCost(cat, pl, 3), growCost(cat, pl, 2)], [0, 1, 3]);
+  pl.garden[0].stage = 3;
+  assert.deepEqual([growCost(cat, pl, 1), growCost(cat, pl, 3), growCost(cat, pl, 2)], [0, 1, 2]);
+});
+
+test('育てると段階が上がり、払った魔素が減る', () => {
   const st = reactState([[0, '道しるべフクロウ']], { white: 2 }); // 平ら：段階1→2 は2個
   const s = applyAction(cat, st, { type: 'grow', player: 0, cell: 0 });
   assert.equal(s.players[0].garden[0].stage, 2);
@@ -83,22 +97,66 @@ test('育てると段階が上がり、素材は次のラウンドに回る（D3
   assert.throws(() => applyAction(cat, s, { type: 'grow', player: 0, cell: 0 }), /足りない/);
 });
 
-test('置いたときの素材は incoming に入り、終わりにまとめて手元へ（D3）', () => {
-  const st = reactState([]);
+test('反応フェーズで得た魔素はその場で使える（フェーズ4で D3 を変更）', () => {
+  const st = reactState([[0, '狼煙ギツネ']]);
   st.players[0].pending.push({ uid: 1, id: byName(cat, '狼煙ギツネ') });
   let s = applyAction(cat, st, { type: 'place', player: 0, pending: 0, cell: 4 });
-  assert.equal(s.players[0].incoming.red, 2);
-  assert.equal(s.players[0].mana.red, 0);
-  s = applyAction(cat, s, { type: 'done', player: 0 });
   assert.equal(s.players[0].mana.red, 2);
-  assert.equal(s.players[0].status, 'done');
+  s = applyAction(cat, s, { type: 'grow', player: 0, cell: 4 }); // 早熟 1個
+  assert.equal(s.players[0].mana.red, 1);
 });
 
 test('連鎖：段階が上がると隣を発動、同じ札は1回だけ（読み方6）', () => {
-  // ハリネズミ段階1→2 で隣（灯りうさぎ2枚）が発動して白を生む
+  // ハリネズミ段階1→2 で隣（灯りうさぎ2枚）が発動して白を生み、その白ですぐ育てられる
   const st = reactState([[4, '鈴のハリネズミ'], [1, '灯りうさぎ'], [3, '灯りうさぎ'], [5, '伝書バト', 2]], { white: 2 });
-  const s = applyAction(cat, st, { type: 'grow', player: 0, cell: 4 });
-  assert.equal(s.players[0].incoming.white, 2);
+  let s = applyAction(cat, st, { type: 'grow', player: 0, cell: 4 });
+  assert.equal(s.players[0].mana.white, 2);
+  s = applyAction(cat, s, { type: 'grow', player: 0, cell: 1 });
+  assert.equal(s.players[0].garden[1].stage, 2);
+});
+
+test('札は1回の拾いで2枚まで、2枚目は任1が足される（フェーズ4）', () => {
+  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 11 });
+  st.phase = 'pick';
+  st.bundles[0] = ['red', 'red', 'red'];
+  st.market[0] = { uid: 501, id: byName(cat, '狼煙ギツネ') }; // 赤1
+  st.market[1] = { uid: 502, id: byName(cat, '灯りうさぎ') }; // 白1 → 2枚目は 白1・任1
+  Object.assign(st.players[0].mana, { white: 1 });
+  const pay = (o) => ({ white: 0, red: 0, blue: 0, green: 0, yellow: 0, ...o });
+  const ok = applyAction(cat, st, { type: 'pick', player: 0, bundle: 0, bends: [], buys: [
+    { market: 0, pay: pay({ red: 1 }) }, { market: 1, pay: pay({ white: 1, red: 1 }) }] });
+  assert.equal(ok.players[0].pending.length, 2);
+  assert.equal(ok.players[0].mana.red, 1);
+  assert.ok(ok.market[0] && ok.market[1], '両方補充');
+  assert.throws(() => applyAction(cat, st, { type: 'pick', player: 0, bundle: 0, bends: [], buys: [
+    { market: 0, pay: pay({ red: 1 }) }, { market: 1, pay: pay({ white: 1 }) }] }), /払う/);
+});
+
+test('置かずに持てる札は2枚まで（保持）', () => {
+  const st = reactState([]);
+  const pl = st.players[0];
+  for (const k of [1, 2, 3]) pl.pending.push({ uid: k, id: byName(cat, '灯りうさぎ') });
+  assert.throws(() => applyAction(cat, st, { type: 'done', player: 0 }), /2枚まで/);
+  let s = applyAction(cat, st, { type: 'place', player: 0, pending: 0, cell: 0 });
+  s = applyAction(cat, s, { type: 'done', player: 0 });
+  assert.equal(s.players[0].pending.length, 2, '持っておいた札は次のラウンドも手元に');
+});
+
+test('やり直し：反応フェーズの自分の操作を1つずつ戻せる。終えた後は戻せない', () => {
+  const st = reactState([[0, '道しるべフクロウ']], { white: 2 });
+  st.players[0].pending.push({ uid: 9, id: byName(cat, '狼煙ギツネ') });
+  let s = applyAction(cat, st, { type: 'place', player: 0, pending: 0, cell: 4 });
+  s = applyAction(cat, s, { type: 'grow', player: 0, cell: 0 });
+  s = applyAction(cat, s, { type: 'undo', player: 0 });
+  assert.equal(s.players[0].garden[0].stage, 1);
+  assert.equal(s.players[0].mana.white, 2);
+  s = applyAction(cat, s, { type: 'undo', player: 0 });
+  assert.equal(s.players[0].garden[4], null);
+  assert.equal(s.players[0].pending.length, 1);
+  assert.throws(() => applyAction(cat, s, { type: 'undo', player: 0 }), /戻せる/);
+  s = applyAction(cat, s, { type: 'place', player: 0, pending: 0, cell: 4 });
+  s = applyAction(cat, s, { type: 'done', player: 0 });
+  assert.throws(() => applyAction(cat, s, { type: 'undo', player: 0 }), /戻せる/);
 });
 
 test('段階+1 は1枚を選び、選んだ札の「その段階になったとき」も動く（読み方5・6）', () => {

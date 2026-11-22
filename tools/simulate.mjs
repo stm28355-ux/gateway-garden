@@ -59,7 +59,7 @@ for (const n of counts) {
     const maxMana = Array(n).fill(0);
     const { st, actions } = playGame(cat, {
       players: n, rounds, seed: 1000 * n + g,
-      onStep: (s) => s.players.forEach((pl, i) => { maxMana[i] = Math.max(maxMana[i], manaTotal(pl.mana) + manaTotal(pl.incoming)); }),
+      onStep: (s) => s.players.forEach((pl, i) => { maxMana[i] = Math.max(maxMana[i], manaTotal(pl.mana)); }),
     });
     steps += actions.filter((a) => a.type !== 'choose').length;
     for (const gid of st.goals) {

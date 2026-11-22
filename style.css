@@ -43,6 +43,8 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--muted); font-weight: 600;
 .card { position: relative; border: 2px solid var(--line); border-radius: 8px; padding: 5px 6px; background: var(--panel); height: 112px; overflow: hidden; font-size: 11px; }
 .card.can { cursor: pointer; }
 .card.sel { outline: 3px solid var(--accent); }
+.card[data-order]::after { content: attr(data-order) "枚目"; position: absolute; right: 4px; bottom: 4px; background: var(--accent); color: #fff; border-radius: 6px; padding: 0 5px; font-weight: 700; }
+.chip { padding: 1px 3px; margin: 0 2px; }
 .card.empty { display: grid; place-items: center; color: var(--muted); }
 .card.white { border-color: #cfc7ae; } .card.red { border-color: var(--red); } .card.blue { border-color: var(--blue); }
 .card.green { border-color: var(--green); } .card.yellow { border-color: var(--yellow); }
