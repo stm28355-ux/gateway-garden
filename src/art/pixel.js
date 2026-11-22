@@ -39,6 +39,12 @@ export function grid(n = 32) {
       for (let i = 0; i <= steps; i++) set(Math.round(x0 + ((x1 - x0) * i) / steps), Math.round(y0 + ((y1 - y0) * i) / steps), c);
       return g;
     },
+    // 目（2×2 の黒目に、左上の白い光）。工程7の判定で「顔は描いてよい」
+    eye(x, y, ink = '#1d1a33', light = '#ffffff') {
+      g.rect(x, y, x + 1, y + 1, ink);
+      set(x, y, light);
+      return g;
+    },
     // 塗ってあるマスだけ色を変える（しま模様・影など）
     tint(x0, y0, x1, y1, c, only = null) {
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (inside(x, y) && px[y][x] && (!only || px[y][x] === only)) px[y][x] = c;

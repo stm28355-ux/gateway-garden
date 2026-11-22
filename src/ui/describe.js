@@ -1,6 +1,6 @@
 // カードの効果の部品から、説明文を作る（画面とカードの一覧で使う）。
 // 「いつ」はキーワード（来訪・開花・芽吹き・摘み・実り・加護・手入れ）で書き、マウスを乗せると説明が出る（工程7で決定）。
-// 「説明も書く」設定のときは、キーワードの後ろに短い説明を括弧で付ける。
+// 「説明も書く」設定のときは、キーワードの後ろに短い説明を括弧で付ける（はじめは「なし」。工程7の判定 T4）。
 export const COLOR_JA = { white: '白', red: '赤', blue: '青', green: '緑', yellow: '黄', any: '好きな色' };
 export const ROLE_JA = { generate: '生成', guide: '導き', boost: '強化', convert: '変換', score: '得点', chain: '連鎖' };
 export const GROWTH_JA = { early: '早熟', flat: '平ら', late: '晩成' };
@@ -21,7 +21,7 @@ export const KEYWORDS = {
 };
 export const RESONATE = { word: '呼応', help: 'そのカードの「開花」を、今すぐもう1回動かす' };
 
-let explain = true; // 「説明も書く」
+let explain = false; // 「説明も書く」
 export const setExplain = (v) => { explain = v; };
 export const getExplain = () => explain;
 

@@ -44,7 +44,7 @@ function stored(key, value) {
   } catch { /* 保存できない環境でも遊べる */ }
   return null;
 }
-setExplain(stored('gg-explain') !== 'off'); // 「説明も書く」（はじめは入れておく）
+setExplain(stored('gg-explain') === 'on'); // 「説明も書く」（はじめは「なし」）
 
 function myToken() { // 抜けて戻ったとき、同じ席に戻るための印
   let t = stored('gg-token');

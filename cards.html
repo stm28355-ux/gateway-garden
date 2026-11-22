@@ -22,7 +22,7 @@ const origins = exps.map((e) => ({ id: e.meta.id, name: `${e.meta.name}（版 ${
 const originNames = Object.fromEntries(exps.map((e) => [e.meta.id, e.meta.name]));
 const state = allState(origins);
 const root = document.getElementById('cards');
-try { setExplain(localStorage.getItem('gg-explain') !== 'off'); } catch { /* 保存できなくても見られる */ }
+try { setExplain(localStorage.getItem('gg-explain') === 'on'); } catch { /* 保存できなくても見られる */ }
 const btn = document.getElementById('explain');
 const draw = () => {
   btn.textContent = `説明：${getExplain() ? 'あり' : 'なし'}`;

@@ -18,11 +18,16 @@
   .card { width: 176px; height: 250px; box-sizing: border-box; padding: 8px; position: relative; display: flex; flex-direction: column; gap: 4px;
     background: linear-gradient(170deg, #273152, #1b2238); border: 2px solid var(--gold); border-radius: 10px;
     box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--c) 45%, transparent), 0 4px 14px rgba(0,0,0,.4); }
-  .top { display: flex; justify-content: space-between; align-items: center; }
-  .name { font-weight: 700; font-size: 14px; }
-  .art { height: 104px; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--c) 38%, transparent), transparent 70%); }
+  /* 名前は1行で高さを決める（長い名前は文字を小さくする）。絵の位置が名前で動かないように */
+  .top { display: flex; justify-content: space-between; align-items: center; height: 20px; gap: 4px; }
+  .name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; }
+  .name.long { font-size: 12px; } .name.longer { font-size: 11px; letter-spacing: -.02em; }
+  .stars { white-space: nowrap; font-size: 12px; }
+  .art { height: 104px; flex: none; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--c) 38%, transparent), transparent 70%); }
   .meta { font-size: 11px; opacity: .8; }
-  .fx { font-size: 11px; line-height: 1.5; }
+  /* 効果の文は決まった高さに収める。長いときは文字を小さく */
+  .fx { font-size: 11px; line-height: 1.45; height: 62px; overflow: hidden; }
+  .fx.long { font-size: 10px; line-height: 1.35; }
   .kw { font-weight: 700; border-bottom: 1px dotted currentColor; }
   .cost { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 3px; }
   .world { position: absolute; right: 8px; bottom: 7px; font-size: 11px; opacity: .8; }
@@ -36,7 +41,7 @@
 <body>
 <header>
   <h1>基本セットの試し描き（6匹）</h1>
-  <p>方向（工程7の判定 R5）：基本セットは「星の書」寄り。絵は32×32、太い縁取り、ポップでかわいく。顔は描かず、形と持ち物で見分ける。カードは実際の大きさ、庭は「ほかの人の盤面」くらいの小ささ。魔素は M1（宝石の切り方：白＝丸・赤＝三角・青＝菱形・緑＝六角・黄＝四角、好きな色＝虹）。</p>
+  <p>2回目（判定 T1・T2 を受けて）：顔を付けた。名前は1行に収め（長い名前は文字を小さく）、絵の位置が動かないようにした。効果の文は決まった高さに収める。<br>方向（工程7の判定 R5）：基本セットは「星の書」寄り。絵は32×32、太い縁取り、ポップでかわいく。カードは実際の大きさ、庭は「ほかの人の盤面」くらいの小ささ。魔素は M1（宝石の切り方：白＝丸・赤＝三角・青＝菱形・緑＝六角・黄＝四角、好きな色＝虹）。</p>
 </header>
 <section>
   <h2>カード</h2>
@@ -70,9 +75,9 @@ const CARDS = [
   { name: 'ひだまりハチ', c: 'yellow', s: '★★★', meta: '黄・生成・早熟', fx: '<span class="kw">開花</span>：黄を2つ得る<br><span class="kw">実り</span>：残った魔素2個につき1点', cost: ['yellow', 'yellow'] },
 ];
 document.getElementById('cards').innerHTML = CARDS.map((d) => `<div class="card" style="--c:${COLORS[d.c]}">
-  <div class="top"><span class="name">${d.name}</span><span>${d.s}</span></div>
+  <div class="top"><span class="name ${d.name.length >= 8 ? 'longer' : d.name.length >= 7 ? 'long' : ''}">${d.name}</span><span class="stars">${d.s}</span></div>
   <div class="art">${baseArt(d.name, 96)}</div>
-  <div class="meta">${d.meta}</div><div class="fx">${d.fx}</div>
+  <div class="meta">${d.meta}</div><div class="fx ${d.fx.replace(/<[^>]+>/g, '').length > 40 ? 'long' : ''}">${d.fx}</div>
   <div class="cost">${d.cost.map((m) => (m === 'any' ? any() : gem(m, 18))).join('')}</div>
   <div class="world">基本</div></div>`).join('');
 const g = ['灯りうさぎ', null, '火の粉トカゲ', '道しるべフクロウ', '芽吹きリス', null, 'しずくクラゲ', null, 'ひだまりハチ'];

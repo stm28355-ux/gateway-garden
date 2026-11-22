@@ -1,4 +1,5 @@
-// 基本セットの住人の絵（32×32）。工程7の試し描き：6匹。顔は描かず、形と持ち物で見分ける。
+// 基本セットの住人の絵（32×32）。工程7の試し描き：6匹。
+// 形と持ち物で見分ける。顔は描く（1回目の顔なしは「不気味」だった）。ほっぺは無理に付けない。
 import { grid, toSvg } from './pixel.js';
 
 const P = {
@@ -23,6 +24,7 @@ const DRAW = {
     .ellipse(11, 28, 3, 1.5, P.cream).ellipse(19, 28, 3, 1.5, P.cream)
     .line(23, 17, 25, 15, P.lanternCap).ellipse(26, 22, 4, 4, P.lanternGlow)
     .rect(24, 19, 28, 25, P.lantern).rect(24, 18, 28, 18, P.lanternCap).rect(24, 26, 28, 26, P.lanternCap)
+    .eye(11, 12).eye(16, 12).px1(14, 15, P.pink)
     .outline(P.ink),
   // 火の粉トカゲ：低い体と巻いたしっぽ、上に舞う火の粉
   lizard: () => grid()
@@ -32,11 +34,13 @@ const DRAW = {
     .rect(10, 24, 11, 27, P.redShade).rect(19, 24, 20, 27, P.redShade)
     .rect(13, 17, 19, 17, P.redShade)
     .px1(22, 9, P.ember).px1(23, 8, P.emberHot).px1(18, 6, P.ember).px1(26, 11, P.emberHot).px1(20, 11, P.ember).px1(25, 5, P.ember)
+    .eye(25, 16).px1(28, 19, P.redShade).px1(29, 19, P.redShade)
     .outline(P.ink),
   // しずくクラゲ：丸いかさと、ゆれる足
   jelly: () => {
     const g = grid().ellipse(16, 12, 10, 8, P.blue).clear(0, 15, 31, 31)
-      .ellipse(12, 9, 3, 2, P.blueLight).rect(6, 14, 26, 14, P.blueShade);
+      .ellipse(10, 7, 2, 1.5, P.blueLight).rect(6, 14, 26, 14, P.blueShade)
+      .eye(12, 10).eye(18, 10).rect(15, 12, 16, 12, P.blueShade);
     for (const x of [8, 12, 16, 20, 24]) {
       for (let y = 16; y <= 28; y++) g.px1(x + (Math.floor((y + x) / 3) % 2), y, P.tentacle);
     }
@@ -50,6 +54,7 @@ const DRAW = {
     .tint(9, 22, 17, 26, P.brownShade)
     .ellipse(10, 27, 2.5, 1.5, P.brown).ellipse(16, 27, 2.5, 1.5, P.brown)
     .line(13, 8, 13, 4, P.leaf).ellipse(10.5, 3.5, 2, 1, P.leaf).ellipse(15.5, 3.5, 2, 1, P.leafLight)
+    .eye(10, 12).eye(15, 12).rect(12, 15, 13, 15, P.brownShade)
     .outline(P.ink),
   // ひだまりハチ：しまの丸い体と、すき通る羽
   bee: () => grid()
@@ -58,7 +63,9 @@ const DRAW = {
     .tint(10, 13, 11, 26, P.stripe).tint(15, 12, 16, 26, P.stripe).tint(20, 13, 21, 26, P.stripe)
     .tint(7, 22, 24, 26, P.yellowShade, P.yellow)
     .poly([[24, 18], [29, 20], [24, 22]], P.stripe)
-    .line(8, 13, 5, 10, P.stripe).line(11, 12, 9, 9, P.stripe)
+    .ellipse(5.5, 18, 3.5, 3.5, P.yellow)
+    .line(5, 14, 3, 10, P.stripe).line(7, 14, 8, 10, P.stripe)
+    .eye(3, 17).px1(6, 20, P.yellowShade)
     .outline(P.ink),
   // 道しるべフクロウ：耳の羽と、道しるべの杭
   owl: () => grid()
@@ -66,7 +73,9 @@ const DRAW = {
     .ellipse(14, 18, 8, 10, P.owl)
     .poly([[7, 10], [8, 4], [11, 9]], P.owl).poly([[17, 9], [20, 4], [21, 10]], P.owl)
     .ellipse(14, 20, 5, 6, P.disc).ellipse(8, 19, 3, 6, P.owlShade)
-    .poly([[13, 14], [15, 14], [14, 17]], P.beak)
+    .ellipse(11, 13, 2.2, 2.2, '#ffffff').ellipse(17, 13, 2.2, 2.2, '#ffffff')
+    .eye(10, 12).eye(16, 12)
+    .poly([[13, 15], [15, 15], [14, 18]], P.beak)
     .rect(10, 28, 12, 29, P.beak).rect(16, 28, 18, 29, P.beak)
     .outline(P.ink),
 };
