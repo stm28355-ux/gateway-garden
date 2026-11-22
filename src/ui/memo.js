@@ -5,15 +5,20 @@ const COLORS = ['#222222', '#d6453a', '#2f6fd1'];
 export function installMemo() {
   const canvas = document.createElement('canvas');
   canvas.className = 'memo-canvas';
+  // 見た目は style.css に頼らずここで付ける（古い style.css が残っていても、盤面を隠さないように）
+  Object.assign(canvas.style, { position: 'absolute', left: '0', top: '0', zIndex: '50', pointerEvents: 'none', background: 'transparent' });
   const bar = document.createElement('div');
   bar.className = 'memo-bar';
-  bar.hidden = true;
+  Object.assign(bar.style, { position: 'fixed', right: '16px', bottom: '16px', zIndex: '60', display: 'none', gap: '6px', padding: '6px 8px', background: '#fffdf7', border: '2px solid #d6453a', borderRadius: '10px', boxShadow: '0 4px 12px rgba(0,0,0,.15)' });
+  const frame = document.createElement('div'); // 書いている間だけ、画面のふちを赤い枠で囲む（画面は暗くも白くもしない）
+  Object.assign(frame.style, { position: 'fixed', inset: '0', zIndex: '55', pointerEvents: 'none', border: '4px solid rgba(214,69,58,.7)', display: 'none' });
   bar.innerHTML = `${COLORS.map((c, i) => `<button data-memo="pen" data-color="${c}" class="${i ? '' : 'on'}" title="ペン"><span style="background:${c}"></span></button>`).join('')}
     <button data-memo="eraser" title="消しゴム">消</button>
     <button data-memo="clear" title="全部消す">全消し</button>
     <button data-memo="hide" title="絵を隠す・見せる">隠す</button>
     <button data-memo="done" class="primary">書き終わり</button>`;
-  document.body.append(canvas, bar);
+  bar.insertAdjacentHTML('afterbegin', '<b style="align-self:center;font-size:12px;color:#d6453a">書いています</b>');
+  document.body.append(canvas, frame, bar);
 
   const ctx = canvas.getContext('2d');
   let color = COLORS[0];
@@ -68,9 +73,11 @@ export function installMemo() {
   function setOn(v) {
     on = v;
     fit();
-    canvas.classList.toggle('on', on);
-    canvas.hidden = false;
-    bar.hidden = !on;
+    canvas.style.pointerEvents = on ? 'auto' : 'none';
+    canvas.style.cursor = on ? 'crosshair' : '';
+    canvas.style.display = '';
+    bar.style.display = on ? 'flex' : 'none';
+    frame.style.display = on ? 'block' : 'none';
   }
 
   bar.addEventListener('click', (ev) => {
@@ -84,8 +91,9 @@ export function installMemo() {
     } else if (kind === 'clear') {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     } else if (kind === 'hide') {
-      canvas.hidden = !canvas.hidden;
-      b.textContent = canvas.hidden ? '見せる' : '隠す';
+      const hide = canvas.style.visibility !== 'hidden';
+      canvas.style.visibility = hide ? 'hidden' : 'visible';
+      b.textContent = hide ? '見せる' : '隠す';
     } else if (kind === 'done') {
       setOn(false);
     }

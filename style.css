@@ -107,11 +107,7 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--muted); font-weight: 600;
 .end table { border-collapse: collapse; width: 100%; }
 .end td, .end th { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; }
 
-/* 落書きのメモ（#6）：ページ全体に重ねる。書いていないときは下の画面を押せる */
-.memo-canvas { position: absolute; left: 0; top: 0; z-index: 50; pointer-events: none; }
-.memo-canvas.on { pointer-events: auto; cursor: crosshair; background: rgba(255, 255, 240, .08); }
-.memo-bar { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; gap: 6px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
-.memo-bar[hidden], .memo-canvas[hidden] { display: none; }
+/* 落書きのメモ（#6）：位置と表示は src/ui/memo.js が直接付ける。ここはボタンの見た目だけ */
 .memo-bar button.on { outline: 2px solid var(--accent); }
 .memo-bar span { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: middle; }
 
