@@ -45,6 +45,22 @@ export function grid(n = 32) {
       set(x, y, light);
       return g;
     },
+    // 暗い顔のための目（白目2×2に、右下の黒目）
+    eyeW(x, y, ink = '#1d1a33', white = '#ffffff') {
+      g.rect(x, y, x + 1, y + 1, white);
+      set(x + 1, y + 1, ink);
+      return g;
+    },
+    // 太い線（点を並べた道を、丸で太らせる）
+    path(points, r, c) {
+      for (let i = 0; i < points.length - 1; i++) {
+        const [x0, y0] = points[i];
+        const [x1, y1] = points[i + 1];
+        const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) * 2 || 1;
+        for (let k = 0; k <= steps; k++) g.ellipse(x0 + ((x1 - x0) * k) / steps, y0 + ((y1 - y0) * k) / steps, r, r, c);
+      }
+      return g;
+    },
     // 塗ってあるマスだけ色を変える（しま模様・影など）
     tint(x0, y0, x1, y1, c, only = null) {
       for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (inside(x, y) && px[y][x] && (!only || px[y][x] === only)) px[y][x] = c;

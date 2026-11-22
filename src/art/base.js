@@ -1,6 +1,7 @@
 // 基本セットの住人の絵（32×32）。工程7の試し描き：6匹。
 // 形と持ち物で見分ける。顔は描く（1回目の顔なしは「不気味」だった）。ほっぺは無理に付けない。
 import { grid, toSvg } from './pixel.js';
+import { MORE } from './base-more.js';
 
 const P = {
   ink: '#1d1a33',
@@ -82,7 +83,12 @@ const DRAW = {
 
 export const BASE_ART_NAMES = { '灯りうさぎ': 'rabbit', '火の粉トカゲ': 'lizard', 'しずくクラゲ': 'jelly', '芽吹きリス': 'squirrel', 'ひだまりハチ': 'bee', '道しるべフクロウ': 'owl' };
 
+// 描いた絵は名前ごとに1回だけ作って取っておく
+const cache = new Map();
 export function baseArt(name, size = 96) {
   const key = BASE_ART_NAMES[name] ?? name;
-  return DRAW[key] ? toSvg(DRAW[key](), size) : null;
+  const draw = DRAW[key] ?? MORE[name];
+  if (!draw) return null;
+  if (!cache.has(name)) cache.set(name, draw());
+  return toSvg(cache.get(name), size);
 }

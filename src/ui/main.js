@@ -10,6 +10,8 @@ import { openTrystero } from '../net/trystero.js';
 import { APP_VERSION } from '../version.js';
 import { filterHtml, listHtml, allState, toggleFilter, leftCounts } from './cardlist.js';
 import { installMemo } from './memo.js';
+import { gemSvg } from './gems.js';
+import { baseArt } from '../art/base.js';
 
 const memo = installMemo(); // 落書き（#6）。自分の画面だけに残る
 
@@ -219,23 +221,36 @@ function act(a) {
 }
 // ---- 描く部品 ---------------------------------------------------------------
 
-const manaDot = (c, extra = '') => `<span class="dot ${c}" ${extra}></span>`;
+const manaDot = (c, extra = '', size = 18) => `<span class="dot ${c}" ${extra}>${gemSvg(c, size)}</span>`;
 
 function manaRow(m) {
   return ELEMENTS.map((c) => `<span class="mana-item">${manaDot(c)}<b>${m[c]}</b></span>`).join('');
 }
 
+// 値段を宝石で（決まった色の数だけ並べ、好きな色は虹の丸）
+const costGems = (cost) => Object.entries(cost).flatMap(([c, n]) => Array(n).fill(c)).map((c) => manaDot(c, '', 14)).join('');
+
+// 住人の絵。基本セットは描いてある（src/art）。まだ絵のない世界のカードは、世界の名前を出す
+function artHtml(d, size) {
+  return baseArt(d.name, size) ?? `<span class="noart">${esc(worldName(d.origin))}</span>`;
+}
+
+const nameCls = (name) => (name.length >= 8 ? 'longer' : name.length >= 7 ? 'long' : '');
+
 function cardHtml(c, { stage = null, attrs = '', cls = '', showCost = false, cost = null } = {}) {
   const d = defById(c.id);
   const s = stage ?? 1;
-  const pips = stage ? [1, 2, 3].map((k) => `<i class="${k <= stage ? 'on' : ''}"></i>`).join('') : '';
   const pts = d.stages[s - 1].points ?? 0;
+  const lines = stageLinesHtml(d, s - 1);
+  const plain = lines.join('').replace(/<[^>]+>/g, '');
   return `<div class="card ${d.element} ${cls}" data-card="${c.id}" data-stage="${s}" ${attrs}>
-    <div class="card-top"><span class="name">${esc(d.name)}</span>${stage ? `<span class="pips">${pips}</span>` : ''}</div>
+    <div class="card-top"><span class="name ${nameCls(d.name)}">${esc(d.name)}</span>${stage ? `<span class="pips">${stars(stage)}</span>` : ''}</div>
+    <div class="card-art">${artHtml(d, 48)}</div>
     <div class="card-mid">${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}${pts ? `・${pts}点` : ''}</div>
-    <div class="card-text">${stageLinesHtml(d, s - 1).join('<br>')}</div>
-    ${showCost ? `<div class="card-cost">${costText(d.cost)}</div>` : ''}
-    ${cost !== null ? `<div class="card-cost">育てる：${COLOR_JA[d.element]}${cost}</div>` : ''}
+    <div class="card-text ${plain.length > 34 ? 'long' : ''}">${lines.join('<br>')}</div>
+    ${showCost ? `<div class="card-cost">${costGems(d.cost)}</div>` : ''}
+    ${cost !== null ? `<div class="card-cost">育てる ${manaDot(d.element, '', 14)}${cost}</div>` : ''}
+    ${d.origin !== 'base' ? `<div class="card-world">${esc(worldName(d.origin))}</div>` : ''}
   </div>`;
 }
 
@@ -244,7 +259,7 @@ function detailHtml() {
   const d = defById(hover.id);
   const g = GROWTH[d.growth];
   return `<div class="detail ${d.element}">
-    <h3>${esc(d.name)}</h3>
+    <h3>${artHtml(d, 40)}${esc(d.name)}</h3>
     <p>${COLOR_JA[d.element]}・${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}（育てる魔素 ${g.join('・')}）・招く魔素 ${costText(d.cost)}・世界 ${esc(worldName(d.origin))}</p>
     ${[0, 1, 2].map((i) => `<div class="stage ${hover.stage === i + 1 ? 'now' : ''}"><b>${stars(i + 1)}</b>（${d.stages[i].points ?? 0}点）<br>${stageLinesHtml(d, i).join('<br>')}</div>`).join('')}
   </div>`;
@@ -343,7 +358,7 @@ function gardenHtml(p, mini = false) {
     const attrs = p === ME ? `data-act="cell" data-cell="${i}"` : '';
     if (!x) return `<div class="cell empty ${cls}" ${attrs}><small>${i + 1}</small></div>`;
     const cost = p === ME && !mini && x.stage < 3 ? growCost(cat, pl, i) : null;
-    return `<div class="cell ${cls}" ${attrs}>${mini ? `<div class="mini-card ${defById(x.id).element}" data-card="${x.id}" data-stage="${x.stage}">${esc(defById(x.id).name)}<b>${x.stage}</b></div>` : cardHtml(x, { stage: x.stage, cost })}</div>`;
+    return `<div class="cell ${cls}" ${attrs}>${mini ? `<div class="mini-card ${defById(x.id).element}" data-card="${x.id}" data-stage="${x.stage}" title="${esc(defById(x.id).name)}">${artHtml(defById(x.id), 28)}<b>${stars(x.stage)}</b></div>` : cardHtml(x, { stage: x.stage, cost })}</div>`;
   }).join('')}</div>`;
 }
 

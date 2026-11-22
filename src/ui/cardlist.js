@@ -1,6 +1,7 @@
 // カードの一覧（#8）。カードの一覧のページ（cards.html）と、ゲーム中の「カードの一覧」の両方で使う。
 import { ELEMENTS, ROLES, GROWTH } from '../core/schema.js';
 import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars } from './describe.js';
+import { baseArt } from '../art/base.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -8,6 +9,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 export function fullCardHtml(d, { originName = d.origin, left, copies } = {}) {
   const stages = [0, 1, 2].map((i) => `<div class="fc-stage"><b>${stars(i + 1)}</b>${d.stages[i].points ? `（${d.stages[i].points}点）` : ''}<br>${stageLinesHtml(d, i).join('<br>')}</div>`).join('');
   return `<div class="fullcard ${d.element}">
+    ${baseArt(d.name, 64) ? `<div class="fc-art">${baseArt(d.name, 64)}</div>` : ''}
     <div class="fc-head"><b>${esc(d.name)}</b>${left !== undefined ? `<span class="fc-left ${left ? '' : 'none'}">あと${left}／${copies}枚</span>` : ''}</div>
     <div class="fc-meta">${COLOR_JA[d.element]}・${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}（育てる魔素 ${GROWTH[d.growth].join('・')}）</div>
     <div class="fc-meta">招く魔素 ${costText(d.cost)}・世界「${esc(originName)}」</div>
