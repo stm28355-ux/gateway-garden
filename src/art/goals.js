@@ -1,62 +1,96 @@
-// お題カードの絵（工程7の判定 X2：お題を表す絵）。住人と同じ道具・同じ縁取りで、32×32。
+// お題カードの絵（工程7の判定 X2・Y3：お題の名前と、満たす中身の両方が分かる絵）。住人と同じ道具・同じ縁取りで、32×32。
+// 中身の数（何枚・何か所）は、絵の中の数で見せる（例：大きな木＝★★★の木が2本）。
 import { grid, toSvg } from './pixel.js';
 
 const INK = '#1d1a33';
 const C = { red: '#e3604f', blue: '#5c9ae6', green: '#4ea860', greenLight: '#8fd39a', yellow: '#ffd03a', white: '#efe9d6',
   gold: '#e6b23c', goldLight: '#ffe28a', brown: '#b97a45', brownDark: '#7e4f2a', soil: '#6b4a32', purple: '#9b7fd6', sky: '#a9d2ff' };
 
+const CARD = '#2c3557';
 const flower = (g, x, y, petal) => g.ellipse(x, y - 2, 1.5, 1.5, petal).ellipse(x - 2, y, 1.5, 1.5, petal).ellipse(x + 2, y, 1.5, 1.5, petal)
-  .ellipse(x, y + 2, 1.5, 1.5, petal).px1(x, y, C.yellow).line(x, y + 3, x, y + 7, C.green);
-const gem = (g, x, y, c) => g.poly([[x, y - 3], [x + 3, y], [x, y + 3], [x - 3, y]], c);
+  .ellipse(x, y + 2, 1.5, 1.5, petal).px1(x, y, C.yellow);
+const stars = (g, x, y, k) => { for (let i = 0; i < k; i++) g.px1(x + i * 2, y, C.goldLight); return g; };
+// 小さなカードの枠（中に絵を描く台）
+const card = (g, x0, y0, x1, y1, edge = C.gold) => g.rect(x0, y0, x1, y1, edge).rect(x0 + 1, y0 + 1, x1 - 1, y1 - 1, CARD);
+const cell3 = [3, 12, 21]; // 3×3 の庭のマスの左上（1マス 8×8）
 
 const DRAW = {
-  // そろいの花壇：同じ色の花が一列
-  'same-line': () => { const g = grid().rect(2, 22, 29, 26, C.soil); for (const x of [7, 16, 25]) flower(g, x, 14, C.red); return g.outline(INK); },
-  // 虹の小道：虹と小道
-  'rainbow-line': () => {
-    const g = grid();
-    [[C.red, 13], [C.yellow, 11], [C.green, 9], [C.blue, 7]].forEach(([c, r]) => g.ellipse(16, 18, r, r, c));
-    g.clear(0, 19, 31, 31).ellipse(16, 18, 5, 5, null).poly([[12, 30], [20, 30], [18, 20], [14, 20]], C.goldLight);
+  // そろいの花壇：一列に並んだ3枚のカードが、みんな同じ赤い花
+  'same-line': () => {
+    const g = grid().rect(1, 24, 30, 28, C.soil);
+    for (const x of [1, 11, 21]) { card(g, x, 6, x + 9, 22, C.red); flower(g, x + 5, 12, C.red); g.line(x + 5, 15, x + 5, 20, C.green); }
     return g.outline(INK);
   },
-  // 四つ角の守り：3×3 の中央と四つ角が光る
+  // 虹の小道：虹の下を通る小道に、色の違うカード3枚の踏み石
+  'rainbow-line': () => {
+    const g = grid();
+    [[C.red, 14], [C.yellow, 12], [C.green, 10], [C.blue, 8]].forEach(([c, r]) => g.ellipse(16, 17, r, r, c));
+    g.clear(0, 18, 31, 31).ellipse(16, 17, 6, 6, null);
+    for (const [i, c] of [C.red, C.blue, C.green].entries()) card(g, 2 + i * 10, 21, 9 + i * 10, 29, c).rect(4 + i * 10, 23, 7 + i * 10, 27, c);
+    return g.outline(INK);
+  },
+  // 四つ角の守り：3×3 の庭の中央と四つ角にカード、まん中は盾
   'four-corners': () => {
     const g = grid();
-    for (const [i, x] of [6, 16, 26].entries()) for (const [j, y] of [6, 16, 26].entries()) {
+    for (const [i, x] of cell3.entries()) for (const [j, y] of cell3.entries()) {
       const on = (i !== 1 && j !== 1) || (i === 1 && j === 1);
-      g.rect(x - 3, y - 3, x + 3, y + 3, on ? C.gold : '#3a4466');
-      if (on) g.px1(x - 1, y - 1, C.goldLight);
+      if (on) card(g, x, y, x + 7, y + 7, C.gold).px1(x + 2, y + 2, C.goldLight);
+      else g.rect(x + 2, y + 2, x + 5, y + 5, '#3a4466');
+    }
+    g.poly([[13, 13], [18, 13], [18, 16], [15.5, 19], [13, 16]], C.sky).px1(15, 14, '#ffffff');
+    return g.outline(INK);
+  },
+  // 大きな木：★★★に育った木が2本
+  'big-tree': () => {
+    const g = grid();
+    for (const x of [8, 23]) {
+      g.ellipse(x, 14, 7, 7, C.green).ellipse(x - 3, 11, 2, 1.5, C.greenLight).rect(x - 1, 20, x + 1, 28, C.brown).px1(x - 2, 28, C.brown).px1(x + 2, 28, C.brown);
+      g.rect(x - 4, 2, x + 2, 4, '#3a2f5a'); stars(g, x - 3, 3, 3);
+    }
+    return g.rect(0, 29, 31, 30, C.soil).outline(INK);
+  },
+  // 茂った庭：3×3 の庭のうち5マスが★★以上の茂み
+  lush: () => {
+    const g = grid();
+    const full = [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]];
+    for (const [i, x] of cell3.entries()) for (const [j, y] of cell3.entries()) {
+      if (full.some(([a, b]) => a === i && b === j)) g.ellipse(x + 3.5, y + 4, 4, 3.5, C.green).px1(x + 2, y + 2, C.greenLight).px1(x + 2, y + 7, C.goldLight).px1(x + 5, y + 7, C.goldLight);
+      else g.rect(x + 2, y + 2, x + 5, y + 5, '#3a4466');
     }
     return g.outline(INK);
   },
-  // 大きな木：★★★ に育った木
-  'big-tree': () => grid().ellipse(16, 12, 11, 8, C.green).ellipse(11, 9, 3, 2, C.greenLight)
-    .rect(13, 18, 19, 28, C.brown).poly([[13, 28], [9, 30], [14, 30]], C.brown).poly([[19, 28], [23, 30], [18, 30]], C.brown)
-    .px1(9, 3, C.gold).px1(16, 1, C.gold).px1(23, 3, C.gold).outline(INK),
-  // 茂った庭：こんもりした茂み
-  lush: () => grid().rect(2, 25, 29, 28, C.soil)
-    .ellipse(7, 20, 5, 5, C.green).ellipse(16, 17, 6, 7, C.green).ellipse(25, 20, 5, 5, C.green)
-    .ellipse(14, 14, 2, 1.5, C.greenLight).ellipse(6, 18, 1.5, 1, C.greenLight).ellipse(25, 18, 1.5, 1, C.greenLight)
-    .px1(10, 22, C.red).px1(21, 21, C.yellow).px1(17, 23, C.white).outline(INK),
-  // 五色の庭：5色の魔素の輪
+  // 五色の庭：5色の花が咲く花壇（5色のカードがそろう）
   'five-colors': () => {
-    const g = grid();
-    [[C.white, 16, 6], [C.red, 26, 13], [C.blue, 22, 25], [C.green, 10, 25], [C.yellow, 6, 13]].forEach(([c, x, y]) => gem(g, x, y, c));
-    return g.ellipse(16, 16, 2.5, 2.5, C.goldLight).outline(INK);
-  },
-  // 仲良しの輪：手をつなぐ3つの丸
-  friends: () => grid().path([[9, 20], [16, 9], [23, 20], [9, 20]], 0.8, C.gold)
-    .ellipse(16, 9, 4.5, 4.5, C.red).ellipse(8, 21, 4.5, 4.5, C.blue).ellipse(24, 21, 4.5, 4.5, C.green).outline(INK),
-  // 対の芽：同じ色の芽が2つ並ぶ
-  'pair-sprouts': () => {
-    const g = grid().rect(2, 23, 29, 27, C.soil);
-    for (const x of [10, 22]) g.line(x, 22, x, 13, C.green).ellipse(x - 3, 12, 3, 1.8, C.green).ellipse(x + 3, 11, 3, 1.8, C.greenLight);
+    const g = grid().rect(1, 24, 30, 29, C.soil);
+    [[C.white, 4, 13], [C.red, 10, 8], [C.blue, 16, 12], [C.green, 22, 8], [C.yellow, 28, 13]].forEach(([c, x, y]) => {
+      g.line(x, y + 2, x, 23, C.green);
+      flower(g, x, y, c);
+    });
     return g.outline(INK);
   },
-  // 世界の交わり：2つの世界をつなぐ門
-  'world-cross': () => grid().ellipse(16, 14, 11, 11, C.purple).ellipse(16, 14, 7, 8, C.sky).clear(0, 25, 31, 31)
-    .rect(4, 14, 7, 28, C.gold).rect(25, 14, 28, 28, C.gold).rect(8, 14, 15, 24, C.sky).rect(17, 14, 24, 24, '#f6b26b')
-    .line(16, 7, 16, 24, C.goldLight).outline(INK),
+  // 仲良しの輪：同じ役目（同じ姿）の3匹が手をつなぐ
+  friends: () => {
+    const g = grid().path([[8, 21], [16, 9], [24, 21], [8, 21]], 0.8, C.gold);
+    for (const [x, y, c] of [[16, 9, C.red], [8, 21, C.blue], [24, 21, C.green]]) g.ellipse(x, y, 5, 4.5, c).px1(x - 3, y - 5, c).px1(x + 3, y - 5, c).eye(x - 3, y - 1).eye(x + 2, y - 1);
+    return g.outline(INK);
+  },
+  // 対の芽：隣り合う2枚のカードに、同じ色の★★の芽
+  'pair-sprouts': () => {
+    const g = grid();
+    for (const x of [3, 17]) {
+      card(g, x, 4, x + 12, 28, C.green);
+      g.rect(x + 2, 22, x + 10, 26, C.soil).line(x + 6, 21, x + 6, 13, C.green).ellipse(x + 4, 12, 2.5, 1.5, C.green).ellipse(x + 8, 11, 2.5, 1.5, C.greenLight);
+      stars(g, x + 4, 6, 2);
+    }
+    return g.px1(16, 16, C.goldLight).outline(INK);
+  },
+  // 世界の交わり：違う世界のカード4枚が並び、つなぎ目3か所が光る（門でつながる）
+  'world-cross': () => {
+    const g = grid().ellipse(16, 9, 9, 7, C.purple).ellipse(16, 10, 6, 5, null).clear(0, 11, 31, 31);
+    for (const [i, c] of [C.sky, '#f6b26b', C.sky, '#f6b26b'].entries()) card(g, 1 + i * 8, 14, 7 + i * 8, 26, C.gold).rect(3 + i * 8, 16, 5 + i * 8, 24, c);
+    for (const x of [8, 16, 24]) g.px1(x, 12, C.goldLight).px1(x, 28, C.goldLight).rect(x - 1 + 0, 19, x, 21, C.goldLight);
+    return g.outline(INK);
+  },
 };
 
 export function goalArt(id, size = 36) {

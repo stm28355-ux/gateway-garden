@@ -16,6 +16,8 @@ import { goalArt } from '../art/goals.js';
 
 const memo = installMemo(); // 落書き（#6）。自分の画面だけに残る
 
+let logOpen = false;  // 右のふちの「できごと」
+let oppOpen = null;   // 上の帯で押した相手（詳しく見る）
 let poolOpen = false; // ゲーム中の「札の一覧」（#8）
 let poolState = null;
 
@@ -448,14 +450,38 @@ function choicePanel(pl) {
   }
 }
 
-function opponentsHtml() {
-  return st.players.filter((p) => p.index !== ME).map((pl) => { // 反応フェーズ中は、view が始まった時のまま見せる
+// 上の帯の相手（奥に座っている人）。押すとその人の庭を詳しく見られる。反応フェーズ中は、view が始まった時のまま
+function opponentBoxes() {
+  return st.players.filter((p) => p.index !== ME).map((pl) => {
     const s = scoreOf(cat, st, pl.index);
     const status = st.phase === 'react' ? (pl.status === 'done' ? '終えた' : '考え中') : '';
-    const who = pl.away ? '（抜けた・CPU が代わり）' : (pl.cpu ? '（CPU）' : '');
-    return `<div class="opp"><div class="opp-head"><b>${esc(pl.name)}</b><small class="muted">${who}</small><span>${s.total}点 ${status}</span></div>
-      <div class="mana">${manaRow(pl.mana)}${pl.pending.length ? `<span class="muted">手元${pl.pending.length}枚</span>` : ''}</div><div class="island mini">${gardenHtml(pl.index, true)}</div></div>`;
+    const who = pl.away ? '抜けた・CPU が代わり' : (pl.cpu ? 'CPU' : '');
+    const now = (st.phase === 'pick' && pickOrder(st)[st.turn] === pl.index) || (st.phase === 'draft' && st.draftOrder[st.turn] === pl.index);
+    return `<button class="opp-box ${now ? 'now' : ''} ${oppOpen === pl.index ? 'open' : ''}" data-act="opp" data-p="${pl.index}">
+      <span class="ob-head"><b>${esc(pl.name)}</b><small>${who}</small><span class="ob-score">${s.total}点</span></span>
+      <span class="ob-line">${ELEMENTS.map((c) => `<span class="mana-item">${manaDot(c, '', 13)}${pl.mana[c]}</span>`).join('')}</span>
+      <span class="ob-line muted">${status || (now ? '摘んでいます' : '')}${pl.pending.length ? `・手元${pl.pending.length}枚` : ''}<span class="ob-more">押すと詳しく</span></span>
+    </button>`;
   }).join('');
+}
+
+function oppDetailHtml() {
+  const pl = st.players[oppOpen];
+  if (!pl) return '';
+  const s = scoreOf(cat, st, oppOpen);
+  const note = st.phase === 'react' ? '<p class="muted">手入れフェーズ中は、このフェーズが始まった時の庭を見せています。</p>' : '';
+  return `<div class="overlay" data-act="opp-close"><div class="pool opp-detail" data-stop>
+    <div class="pool-head"><h2>${esc(pl.name)} の庭　${s.total}点（★${s.stage}・実り${s.end}・お題${s.goals}）</h2><button data-act="opp-close">閉じる</button></div>
+    ${note}<div class="mana">${manaRow(pl.mana)}${pl.pending.length ? `<span class="muted">手元のカード：${pl.pending.map((c) => `「${esc(defById(c.id).name)}」`).join('')}</span>` : ''}</div>
+    <div class="board-slab">${gardenHtml(oppOpen)}</div>
+  </div></div>`;
+}
+
+function logHtml() {
+  return `<div class="overlay" data-act="log-close"><div class="pool" data-stop>
+    <div class="pool-head"><h2>できごと</h2><button data-act="log-close">閉じる</button></div>
+    <ol class="log full" reversed>${session.log().slice().reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ol>
+  </div></div>`;
 }
 
 // 拾う順（このラウンド）と、次のラウンドの先番
@@ -496,41 +522,39 @@ function render() {
   const me = scoreOf(cat, st, ME);
   const lost = session.problem ? `<p class="error banner">${esc(session.problem)}</p>` : '';
   const shownError = error || session.error || '';
+  // 対面の配置（工程7・人の案）：奥（上の帯）に相手、真ん中に場、手前に自分の庭。右のふちに「できごと」「カードの一覧」の引き出し
   app.innerHTML = `
-  <header class="bar">
-    <b>Gateway Garden</b>
-    ${room ? `<span class="muted">部屋 ${esc(room.code)}</span>` : ''}
-    <span>ラウンド ${st.round} / ${st.rounds}・${phaseName()}</span>
-    ${orderHtml()}
-    <span class="spacer"></span>
-    <button data-act="explain" title="キーワードの後ろに説明を書くか">説明：${getExplain() ? 'あり' : 'なし'}</button>
-    <button data-act="memo">メモ（落書き）</button>
-    <button data-act="pool">カードの一覧</button>
-    ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
+  <header class="topbar">
+    <div class="tb-round"><b>ラウンド ${st.round} / ${st.rounds}</b><span class="tb-phase">${phaseName()}</span><small>${orderHtml()}</small></div>
+    <div class="tb-opps">${opponentBoxes()}</div>
+    <div class="tb-tools">
+      <button data-act="memo">メモ</button>
+      <button data-act="explain" title="キーワードの後ろに説明を書くか">説明：${getExplain() ? 'あり' : 'なし'}</button>
+      ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
+      ${room ? `<small class="muted">部屋 ${esc(room.code)}</small>` : ''}
+    </div>
   </header>
   ${lost}
-  <section class="board">
-    <div class="col-left">
-      <section class="sec"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
-      <section class="sec"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div></section>
-      <section class="sec"><h2 class="sec-title">場のカード（招く）</h2><div class="market">${marketHtml()}</div></section>
-    </div>
-    <div class="col-mid">
-      <section class="sec mine">
-        <div class="me-head"><h2 class="sec-title">${esc(pl.name)} の庭</h2><span>${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span></div>
-        <div class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></div>
-        <div class="island">${gardenHtml(ME)}</div>
-      </section>
-      <section class="sec"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
-    </div>
-    <div class="col-right">
-      <section class="sec"><h2 class="sec-title">カードの説明</h2><div class="detail-box">${detailHtml()}</div></section>
-      <section class="sec"><h2 class="sec-title">ほかの人</h2><div class="opps">${opponentsHtml()}</div></section>
-      <section class="sec"><h2 class="sec-title">できごと</h2><ol class="log" reversed>${session.log().slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ol></section>
-    </div>
-  </section>
+  <main class="table">
+    <section class="sec a-bundles"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div></section>
+    <section class="sec a-market"><h2 class="sec-title">場のカード（招く）</h2><div class="market">${marketHtml()}</div></section>
+    <section class="sec a-goals"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
+    <section class="sec a-garden mine">
+      <h2 class="sec-title">${esc(pl.name)} の庭</h2>
+      <div class="me-head"><span class="me-score">${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span><span class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></span></div>
+      <div class="board-slab">${gardenHtml(ME)}</div>
+    </section>
+    <section class="sec a-detail"><h2 class="sec-title">カードの説明</h2><div class="detail-box">${detailHtml()}</div></section>
+    <section class="sec a-action"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
+  </main>
+  <nav class="sidetabs">
+    <button data-act="log-open">できごと</button>
+    <button data-act="pool">カードの一覧</button>
+  </nav>
   ${endHtml()}
-  ${poolOpen ? poolHtml() : ''}`;
+  ${poolOpen ? poolHtml() : ''}
+  ${logOpen ? logHtml() : ''}
+  ${oppOpen !== null ? oppDetailHtml() : ''}`;
 }
 
 // このゲームで使っている札の一覧。「あと何枚」は、場・全員の庭と手元・捨て札に見えている分を引いた数
@@ -591,6 +615,10 @@ app.addEventListener('click', async (ev) => {
     case 'memo': memo.toggle(); return;
     case 'explain': setExplain(!getExplain()); stored('gg-explain', getExplain() ? 'on' : 'off'); break;
     case 'pool': poolOpen = true; break;
+    case 'log-open': logOpen = true; break;
+    case 'log-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; logOpen = false; break;
+    case 'opp': oppOpen = oppOpen === n('p') ? null : n('p'); break;
+    case 'opp-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; oppOpen = null; break;
     case 'pool-close': poolOpen = false; break;
     case 'copy':
       try { await navigator.clipboard.writeText(JSON.stringify(session.record)); el.textContent = 'コピーしました'; } catch { el.textContent = 'コピーできませんでした'; }

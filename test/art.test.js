@@ -21,3 +21,9 @@ test('縁取りは、塗った所に接する空きマスだけに付く', () =>
   assert.equal(g.px[2][3], '#000');
   assert.equal(g.px[2][2], null, 'ななめは縁取りしない');
 });
+
+test('お題カードはどれも絵がある（工程7の判定 Y3）', async () => {
+  const { goalArt } = await import('../src/art/goals.js');
+  const { GOALS } = await import('../src/core/goals.js');
+  for (const id of Object.keys(GOALS)) assert.match(goalArt(id, 32), /^<svg/, `お題「${GOALS[id].name}」の絵がない`);
+});

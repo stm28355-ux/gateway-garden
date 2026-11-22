@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gateway Garden 住人の絵の一覧</title>
+<title>Gateway Garden 絵の一覧</title>
 <style>
   body { margin: 0; padding: 12px 16px; background: radial-gradient(circle at 30% 15%, #2f3b5c, #151a2b 70%); color: #f3ead2; font-family: system-ui, sans-serif; min-height: 100vh; }
   h1 { font-size: 18px; margin: 0 0 8px; }
@@ -16,10 +16,15 @@
 <body>
 <h1>住人の絵の一覧（基本セット）</h1>
 <div class="grid" id="g"></div>
+<h1 style="margin-top:16px">お題カードの絵</h1>
+<div class="grid" id="goals"></div>
 <script type="module">
 import { baseArt } from './src/art/base.js';
+import { goalArt } from './src/art/goals.js';
+import { GOALS } from './src/core/goals.js';
 const cards = await (await fetch('expansions/base/cards.json')).json();
 document.getElementById('g').innerHTML = cards.map((c) => `<figure>${baseArt(c.name, 96) ?? '（まだ）'}<div class="small">${baseArt(c.name, 32) ?? ''}</div><figcaption>${c.name}</figcaption></figure>`).join('');
+document.getElementById('goals').innerHTML = Object.entries(GOALS).map(([id, x]) => `<figure>${goalArt(id, 96)}<div class="small">${goalArt(id, 40)}</div><figcaption><b>${x.name}</b><br><small>${x.text}</small></figcaption></figure>`).join('');
 </script>
 </body>
 </html>

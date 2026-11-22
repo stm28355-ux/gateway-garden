@@ -14,7 +14,7 @@ export function installMemo() {
   const frame = document.createElement('div'); // 書いている間だけ、画面のふちを赤い枠で囲む（画面は暗くも白くもしない）
   Object.assign(frame.style, { position: 'fixed', inset: '0', zIndex: '55', pointerEvents: 'none', border: '4px solid rgba(214,69,58,.7)', display: 'none' });
   bar.innerHTML = `${COLORS.map((c, i) => `<button data-memo="pen" data-color="${c}" class="${i ? '' : 'on'}" title="ペン"><span style="background:${c}"></span></button>`).join('')}
-    <button data-memo="eraser" title="消しゴム">消</button>
+    <button data-memo="eraser" title="消しゴム（触れた線を一筆まるごと消す）">消</button>
     <button data-memo="clear" title="全部消す">全消し</button>
     <button data-memo="hide" title="絵を隠す・見せる">隠す</button>
     <button data-memo="done" class="primary">書き終わり</button>`;
@@ -25,51 +25,76 @@ export function installMemo() {
   let color = COLORS[0];
   let erase = false;
   let drawing = false;
-  let last = null;
   let on = false;
+  // 線は「一筆」ごとに覚える（工程7の判定 Y4：メモは意味のある線を書く道具なので、消しゴムは一筆まるごと消す）
+  let strokes = []; // { color, pts: [{x, y}] }
+  let current = null;
 
-  // 紙の大きさをページ全体に合わせる（大きくなるときは描いた絵を残す）
+  function drawStroke(k) {
+    ctx.strokeStyle = k.color;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(k.pts[0].x, k.pts[0].y);
+    for (const p of k.pts.slice(1)) ctx.lineTo(p.x, p.y);
+    if (k.pts.length === 1) ctx.lineTo(k.pts[0].x + 0.1, k.pts[0].y);
+    ctx.stroke();
+  }
+  function redraw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const k of strokes) drawStroke(k);
+  }
+
+  // 紙の大きさをページ全体に合わせる（覚えている線を描き直す）
   function fit() {
     // 窓の幅はスクロールバーを除いた clientWidth で取る（innerWidth だと紙がはみ出して横スクロールが出る）
     const root = document.documentElement;
     const w = Math.max(root.scrollWidth, root.clientWidth);
     const h = Math.max(root.scrollHeight, root.clientHeight);
     if (canvas.width >= w && canvas.height >= h) return;
-    const keep = document.createElement('canvas');
-    keep.width = canvas.width;
-    keep.height = canvas.height;
-    if (keep.width && keep.height) keep.getContext('2d').drawImage(canvas, 0, 0);
     canvas.width = Math.max(w, canvas.width);
     canvas.height = Math.max(h, canvas.height);
     canvas.style.width = `${canvas.width}px`;
     canvas.style.height = `${canvas.height}px`;
-    if (keep.width && keep.height) ctx.drawImage(keep, 0, 0);
+    redraw();
   }
   window.addEventListener('resize', fit);
   fit();
+
+  // 点 p から線分 a-b までの距離
+  function dist(p, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const t = dx || dy ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy))) : 0;
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+  }
+  // 消しゴムが触れた一筆を消す（なぞった所にかかった線はまるごと消える）
+  function eraseAt(p) {
+    const hit = (k) => k.pts.some((q, i) => dist(p, q, k.pts[Math.min(i + 1, k.pts.length - 1)]) <= 10);
+    const left = strokes.filter((k) => !hit(k));
+    if (left.length !== strokes.length) { strokes = left; redraw(); }
+  }
 
   const point = (ev) => ({ x: ev.pageX, y: ev.pageY });
   canvas.addEventListener('pointerdown', (ev) => {
     if (!on) return;
     drawing = true;
-    last = point(ev);
     canvas.setPointerCapture(ev.pointerId);
+    const p = point(ev);
+    if (erase) return eraseAt(p);
+    current = { color, pts: [p] };
+    strokes.push(current);
+    drawStroke(current);
   });
   canvas.addEventListener('pointermove', (ev) => {
     if (!drawing) return;
     const p = point(ev);
-    ctx.globalCompositeOperation = erase ? 'destination-out' : 'source-over';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = erase ? 22 : 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(last.x, last.y);
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    last = p;
+    if (erase) return eraseAt(p);
+    const last = current.pts[current.pts.length - 1];
+    current.pts.push(p);
+    drawStroke({ color: current.color, pts: [last, p] });
   });
-  const stop = () => { drawing = false; };
+  const stop = () => { drawing = false; current = null; };
   canvas.addEventListener('pointerup', stop);
   canvas.addEventListener('pointercancel', stop);
 
@@ -92,7 +117,8 @@ export function installMemo() {
       if (!erase) color = b.dataset.color;
       for (const x of bar.querySelectorAll('[data-memo="pen"],[data-memo="eraser"]')) x.classList.toggle('on', x === b);
     } else if (kind === 'clear') {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      strokes = [];
+      redraw();
     } else if (kind === 'hide') {
       const hide = canvas.style.visibility !== 'hidden';
       canvas.style.visibility = hide ? 'hidden' : 'visible';
@@ -104,7 +130,7 @@ export function installMemo() {
 
   return {
     toggle() { setOn(!on); },
-    clear() { ctx.clearRect(0, 0, canvas.width, canvas.height); },
+    clear() { strokes = []; redraw(); },
     get on() { return on; },
   };
 }
