@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>号令の戦場 絵の試し</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { padding: 12px 16px 32px; }
+  h1 { font-size: 20px; margin: 0 0 4px; color: var(--gold-hi); }
+  h2 { font-size: 15px; margin: 18px 0 6px; }
+  p { margin: 4px 0; color: var(--muted); max-width: 980px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; }
+  figure { margin: 0; padding: 6px; text-align: center; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.03); }
+  figcaption { font-size: 12px; margin-top: 2px; }
+  .small { display: flex; gap: 6px; justify-content: center; align-items: end; margin-top: 4px; }
+  .pair { display: flex; gap: 14px; flex-wrap: wrap; }
+  .pair figure { min-width: 260px; }
+  .cards { display: grid; grid-template-columns: repeat(6, 150px); gap: 6px; }
+  .tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 6px; background: var(--gold); color: #1b2238; margin-left: 4px; }
+</style>
+</head>
+<body>
+<h1>拡張「号令の戦場」住人の絵の試し</h1>
+<p>案A：本家 auto-battler の駒の絵（16×16）をそのまま使う。18体は本家の絵、遺物の2つ（獣のトーテム・雷の宝珠）は本家の画風で新しく描いた<span class="tag">新</span>。</p>
+<p>案B：本家の雰囲気のまま、基本セットと同じ 32×32 に描き直す（ここでは3体だけ試し描き）。</p>
+
+<h2>案A：20体（大きく・カードの大きさ）</h2>
+<div class="grid" id="a"></div>
+
+<h2>カードに入れたとき（左3枚が案A、右3枚が基本セット）</h2>
+<div class="cards" id="cards"></div>
+
+<h2>案A と 案B（32×32 に描き直し）を比べる</h2>
+<div class="pair" id="b"></div>
+
+<script type="module">
+import { autoBattlerArt, ROWS } from './src/art/auto-battler-1.js';
+import { baseArt } from './src/art/base.js';
+import { grid, toSvg } from './src/art/pixel.js';
+
+const NEW = ['獣のトーテム', '雷の宝珠'];
+document.getElementById('a').innerHTML = Object.keys(ROWS).map((n) => `<figure>${autoBattlerArt(n, 96)}<div class="small">${autoBattlerArt(n, 48)}${autoBattlerArt(n, 28)}</div><figcaption>${n}${NEW.includes(n) ? '<span class="tag">新</span>' : ''}</figcaption></figure>`).join('');
+
+// カードの見た目（ゲームと同じ class）
+const card = (name, art, el, text) => `<div class="card ${el}"><div class="card-top"><span class="name">${name}</span></div><div class="card-art">${art}</div><div class="card-mid">試し</div><div class="card-text">${text}</div></div>`;
+document.getElementById('cards').innerHTML = [
+  card('見習い剣士', autoBattlerArt('見習い剣士', 48), 'red', '号令の戦場'),
+  card('古の巨獣', autoBattlerArt('古の巨獣', 48), 'green', '号令の戦場'),
+  card('魔剣', autoBattlerArt('魔剣', 48), 'white', '号令の戦場'),
+  card('灯りうさぎ', baseArt('灯りうさぎ', 48), 'white', '基本セット'),
+  card('火の粉トカゲ', baseArt('火の粉トカゲ', 48), 'red', '基本セット'),
+  card('長老の木', baseArt('長老の木', 48), 'green', '基本セット'),
+].join('');
+
+// 案B：本家と同じ16色で、32×32 に描き直し（太い縁取りは同じ道具で付ける）
+const C = { k: '#1a1c2c', w: '#f4f4f4', g: '#94b0c2', s: '#566c86', y: '#ffcd75', o: '#ef7d57', r: '#b13e53', b: '#3b5dc9', c: '#41a6f6',
+  p: '#8a4fd1', n: '#8a5a3c', t: '#c28569', f: '#f0c8a0', P: '#5d275d', a: '#333c57', u: '#29366f' };
+const B = {
+  // 見習い剣士：茶色の髪、青い服、金の帯、右手に剣を立てる
+  見習い剣士: () => grid()
+    .ellipse(12, 8, 7, 6, C.n).rect(6, 9, 18, 15, C.f).rect(6, 7, 18, 9, C.n).px1(6, 10, C.n).px1(18, 10, C.n)
+    .rect(9, 11, 9, 12, C.k).rect(14, 11, 14, 12, C.k)
+    .rect(6, 17, 18, 25, C.b).ellipse(12, 17, 7, 2, C.b).rect(6, 21, 18, 22, C.y).px1(12, 21, C.o)
+    .rect(3, 17, 5, 23, C.b).rect(3, 24, 5, 25, C.f).rect(19, 17, 22, 19, C.b)
+    .rect(8, 26, 11, 29, C.s).rect(13, 26, 16, 29, C.s)
+    .rect(24, 1, 25, 15, C.w).px1(25, 1, C.g).rect(25, 2, 25, 15, C.g).rect(21, 16, 28, 17, C.y).rect(24, 18, 25, 21, C.n).rect(22, 18, 23, 20, C.f)
+    .outline(C.k),
+  // 古の巨獣：大きな四つ足、背中に明るい毛、白い牙
+  古の巨獣: () => grid()
+    .ellipse(18, 15, 12, 8, C.n).ellipse(18, 10, 9, 3, C.t)
+    .ellipse(7, 17, 6, 6, C.n).px1(5, 15, C.k).px1(6, 15, C.k).px1(5, 14, C.y)
+    .path([[4, 21], [3, 25], [6, 27]], 0.8, C.w)
+    .rect(10, 21, 13, 29, C.n).rect(16, 22, 19, 29, C.a).rect(22, 21, 25, 29, C.n).rect(27, 20, 29, 28, C.a)
+    .rect(14, 19, 28, 21, C.a)
+    .outline(C.k),
+  // 魔剣：紫の刃が斜めに走る剣、金の鍔、赤い柄（物なので顔なし）
+  魔剣: () => grid()
+    .path([[28, 3], [12, 19]], 1.4, C.p).path([[27, 5], [13, 19]], 0.6, C.P).px1(28, 2, C.w).px1(27, 3, C.w)
+    .path([[6, 15], [15, 24]], 1, C.y)
+    .path([[10, 21], [4, 27]], 1.2, C.r).ellipse(3, 28, 1.6, 1.6, C.y)
+    .outline(C.k),
+};
+document.getElementById('b').innerHTML = Object.keys(B).map((n) => `<figure><div class="small">${autoBattlerArt(n, 96)}${toSvg(B[n](), 96)}</div><div class="small">${autoBattlerArt(n, 48)}${toSvg(B[n](), 48)}</div><figcaption>${n}（左：案A・右：案B）</figcaption></figure>`).join('');
+</script>
+</body>
+</html>
