@@ -23,7 +23,9 @@ const counts = (args[1] ?? '2,3,4').split(',').map(Number);
 const rounds = Number(args[2] ?? 8);
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const cat = buildCatalog([{ meta: read('../expansions/base/expansion.json'), cards: read('../expansions/base/cards.json') }]);
+// 使う拡張：--exp base,auto-battler（基本セットは必ず入る）
+const expIds = [...new Set(['base', ...(opt('--exp') ?? 'base').split(',').map((s) => s.trim()).filter(Boolean)])];
+const cat = buildCatalog(expIds.map((id) => ({ meta: read(`../expansions/${id}/expansion.json`), cards: read(`../expansions/${id}/cards.json`) })));
 
 const COLOR_JA = { white: '白', red: '赤', blue: '青', green: '緑', yellow: '黄' };
 const ROLE_JA = { generate: '生成', guide: '導き', boost: '強化', convert: '変換', score: '得点', chain: '連鎖' };
@@ -45,7 +47,7 @@ const say = (s = '') => { lines.push(s); console.log(s); };
 
 say(`# 自動対戦の結果（CPU ふつう どうし、${rounds}ラウンド、各人数 ${games} ゲーム）`);
 say();
-say('前提：全員 CPU「ふつう」（その場で一番得な手、好きなときに使う効果は使わない）。基本セットだけ、各札2枚の山。');
+say(`前提：全員 CPU「ふつう」（その場で一番得な手）。使う札：${expIds.map((id) => `${id}（版 ${cat.versions[id]}）`).join('・')}、各札2枚の山。`);
 say(`育てる値段：早熟 ${GROWTH.early.join('・')}、平ら ${GROWTH.flat.join('・')}、晩成 ${GROWTH.late.join('・')}`);
 
 const cardStats = {};
@@ -120,11 +122,11 @@ say('## 札ごと（全人数をまとめて）');
 say();
 say('「勝ちへの効き」＝その札を持っていた人の1位の割合 ÷ 人数から見た1位の割合。1.0 より大きいほど勝ちに効いている。');
 say();
-say('| 札 | 色 | 役目 | 持たれた回数 | 終わりの段階（平均） | 勝ちへの効き |');
-say('| --- | --- | --- | --- | --- | --- |');
+say('| 札 | 出身 | 色 | 役目 | 持たれた回数 | 終わりの段階（平均） | 勝ちへの効き |');
+say('| --- | --- | --- | --- | --- | --- | --- |');
 for (const [name, s] of Object.entries(cardStats).sort((a, b) => (b[1].wins / b[1].share) - (a[1].wins / a[1].share))) {
   const d = Object.values(cat.cards).find((c) => c.name === name);
-  say(`| ${name} | ${COLOR_JA[d.element]} | ${ROLE_JA[d.role]} | ${s.owned} | ${f1(s.stage / s.owned)} | ${(s.wins / s.share).toFixed(2)} |`);
+  say(`| ${name} | ${d.origin} | ${COLOR_JA[d.element]} | ${ROLE_JA[d.role]} | ${s.owned} | ${f1(s.stage / s.owned)} | ${(s.wins / s.share).toFixed(2)} |`);
 }
 
 if (out) {

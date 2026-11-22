@@ -5,9 +5,12 @@
 ## 手順
 
 1. `main` から新しいブランチを作る（例：`expansion/auto-battler`）。
-2. `expansions/<id>/expansion.json` と `expansions/<id>/cards.json` を書く。
-3. `npm test` で確かめる（書き方の誤りと、ルールのテスト）。
-4. Pull Request を出す。GitHub Actions が同じ確かめを自動で行い、通ったら取り込む。
+2. `expansions/<id>/expansion.json` と `expansions/<id>/cards.json` を書き、`expansions/index.json` に id を足す。
+3. 確かめる：
+   - `npm test`：書き方の誤りと、ルールのテスト。
+   - `node tools/serve.mjs 5192` で http://localhost:5192/cards.html を開き、札の説明文が思ったとおりか見る（説明文は効果の部品から自動で作られる）。
+   - `node tools/simulate.mjs 200 2,3,4 8 --exp <id>`：CPU どうしの自動対戦。最後の表の「勝ちへの効き」が、新しい札だけ大きく外れていないか（目安 0.7〜1.4）を見る。
+4. Pull Request を出す。GitHub Actions が同じ確かめを自動で行い、通ったら取り込む。取り込むと GitHub Pages に出る。
 
 ## expansion.json
 
@@ -71,3 +74,6 @@
 
 - 新しい部品が要るときは、先に Issue で相談する（ゲームの処理と CPU と確認の道具を一緒に直すため）。
 - 数字（量・点数）は調整で変わることがある。
+- 札を変えたら `expansion.json` の `version` を上げる。通信対戦では、ホストと札の版が違う人は入れない。
+- 拡張の色の個性は、その拡張が決めてよい（基本セットの色の個性に合わせなくてよい）。
+- 「違う出身の札」を見る効果（`origin: "other"`）は、拡張を混ぜる理由になる。拡張ごとに1〜2枚あるとよい。

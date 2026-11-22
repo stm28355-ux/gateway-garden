@@ -8,6 +8,10 @@ import { stageLines, costText, COLOR_JA, ROLE_JA, GROWTH_JA } from './describe.j
 import { GameHost, HostRoom, GuestClient } from '../net/session.js';
 import { openTrystero } from '../net/trystero.js';
 import { APP_VERSION } from '../version.js';
+import { filterHtml, listHtml, allState, toggleFilter, leftCounts } from './cardlist.js';
+
+let poolOpen = false; // ゲーム中の「札の一覧」（#8）
+let poolState = null;
 
 const app = document.getElementById('app');
 let ME = 0;
@@ -90,7 +94,7 @@ function renderSetup() {
     </form>
     ${mode !== 'solo' ? '<p class="muted">通信対戦はサーバーなしで、ブラウザ同士を直接つなぎます。同じ合言葉を入れた人が同じ部屋に入ります。</p>' : ''}
     <details class="rules"><summary>遊び方（短く）</summary>${rulesHtml()}</details>
-    <p class="muted small">版 ${APP_VERSION}</p>
+    <p class="muted small">版 ${APP_VERSION}・<a href="cards.html">札の一覧</a></p>
   </main>`;
   for (const b of app.querySelectorAll('[data-mode]')) b.addEventListener('click', () => { mode = b.dataset.mode; renderSetup(); });
   document.getElementById('setup').addEventListener('submit', (ev) => {
@@ -476,6 +480,7 @@ function render() {
     <span>ラウンド ${st.round} / ${st.rounds}・${phaseName()}</span>
     ${orderHtml()}
     <span class="spacer"></span>
+    <button data-act="pool">札の一覧</button>
     ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
   </header>
   ${lost}
@@ -497,8 +502,26 @@ function render() {
       <h2>できごと</h2><ol class="log" reversed>${session.log().slice(-14).reverse().map((l) => `<li>${esc(l)}</li>`).join('')}</ol>
     </div>
   </section>
-  ${endHtml()}`;
+  ${endHtml()}
+  ${poolOpen ? poolHtml() : ''}`;
 }
+
+// このゲームで使っている札の一覧。「あと何枚」は、場・全員の庭と手元・捨て札に見えている分を引いた数
+function poolHtml() {
+  const origins = Object.keys(cat.versions).map((id) => ({ id, name: expansions.find((e) => e.meta.id === id)?.meta.name ?? id }));
+  poolState ??= allState(origins);
+  const originNames = Object.fromEntries(origins.map((o) => [o.id, o.name]));
+  const cards = cat.deckIds.map((id) => cat.cards[id]);
+  return `<div class="overlay"><div class="pool">
+    <div class="pool-head"><h2>このゲームの札（各種類2枚）</h2><button data-act="pool-close">閉じる</button></div>
+    ${filterHtml(origins, poolState)}
+    ${listHtml(cards, poolState, { originNames, left: leftCounts(cat, st), copies: 2 })}
+  </div></div>`;
+}
+
+app.addEventListener('change', (ev) => {
+  if (poolOpen && ev.target.dataset.filter) { toggleFilter(poolState, ev.target); render(); }
+});
 
 // ---- 押したとき ---------------------------------------------------------------
 
@@ -538,6 +561,8 @@ app.addEventListener('click', async (ev) => {
   const pl = st.players[ME];
   const n = (k) => Number(d[k]);
   switch (d.act) {
+    case 'pool': poolOpen = true; break;
+    case 'pool-close': poolOpen = false; break;
     case 'copy':
       try { await navigator.clipboard.writeText(JSON.stringify(session.record)); el.textContent = 'コピーしました'; } catch { el.textContent = 'コピーできませんでした'; }
       return;

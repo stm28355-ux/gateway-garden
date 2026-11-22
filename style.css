@@ -107,6 +107,21 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--muted); font-weight: 600;
 .end table { border-collapse: collapse; width: 100%; }
 .end td, .end th { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; }
 
+/* 札の一覧（cards.html とゲーム中） */
+.cardpage { padding: 8px 16px 24px; }
+.filters { display: grid; gap: 6px; margin: 8px 0; }
+.chip-check { display: inline-flex; align-items: center; gap: 3px; margin-right: 10px; }
+.fullcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.fullcard { border: 2px solid var(--line); border-radius: 10px; padding: 8px; background: var(--panel); font-size: 12px; }
+.fullcard.white { border-color: #cfc7ae; } .fullcard.red { border-color: var(--red); } .fullcard.blue { border-color: var(--blue); }
+.fullcard.green { border-color: var(--green); } .fullcard.yellow { border-color: var(--yellow); }
+.fc-head { display: flex; justify-content: space-between; font-size: 14px; }
+.fc-left { color: var(--accent); font-weight: 700; } .fc-left.none { color: var(--muted); }
+.fc-meta { color: var(--muted); }
+.fc-stage { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--line); }
+.pool { background: var(--panel); border-radius: 12px; padding: 12px 16px; width: min(1200px, 94vw); max-height: 88vh; overflow: auto; }
+.pool-head { display: flex; justify-content: space-between; align-items: center; }
+
 @media (max-width: 1380px) {
   .board { grid-template-columns: 400px minmax(520px, 1fr); }
   .col-right { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
