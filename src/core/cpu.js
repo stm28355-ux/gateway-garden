@@ -1,5 +1,5 @@
 // CPU「ふつう」（D17）：その場で一番得な手を選ぶ。先は読まず、拾う手は「拾ってからこのラウンドの庭をどう触るか」まで試して比べる。
-// 自動対戦で札の強さを測る基準にも使う。好きなときに使う効果（use）はまだ使わない（Issue #2）。
+// 自動対戦で札の強さを測る基準にも使う。好きなときに使う効果（use）は、育て終わった後に良くなるなら使う（#2）。
 import { ELEMENTS } from './schema.js';
 import { GOALS } from './goals.js';
 import {
@@ -93,7 +93,21 @@ export function chooseValue(cat, st, p) {
       const d = defOf(cat, inst);
       return (d.stages[inst.stage].points ?? 0) - (d.stages[inst.stage - 1].points ?? 0);
     });
-    case 'move': return null;
+    case 'move': { // 動かし方を全部試し、今より良くなる中で一番良いもの
+      let bestMove = null;
+      let bestV = valueOf(cat, st, p);
+      for (const from of ch.from) {
+        for (let to = 0; to < 9; to++) {
+          if (to === from) continue;
+          const s = clone(st);
+          const g = s.players[p].garden;
+          [g[from], g[to]] = [g[to], g[from]];
+          const v = valueOf(cat, s, p);
+          if (v > bestV + 1e-9) { bestV = v; bestMove = { from, to }; }
+        }
+      }
+      return bestMove;
+    }
     case 'discard': {
       const left = { ...pl.mana };
       const out = emptyMana();
@@ -137,6 +151,19 @@ function bestGrow(cat, st, p) {
     const s = settle(cat, applyMut(cat, clone(st), { type: 'grow', player: p, cell }), p);
     const v = valueOf(cat, s, p);
     if (!best || v > best.v) best = { v, cell, s };
+  });
+  return best;
+}
+
+// 好きなときに使う効果（#2）：まだ使っていない札を試す
+function bestUse(cat, st, p) {
+  const pl = st.players[p];
+  let best = null;
+  pl.garden.forEach((inst, cell) => {
+    if (!inst || pl.used.includes(inst.uid) || !stageOf(cat, inst).effects.some((e) => e.when === 'use')) return;
+    const s = settle(cat, applyMut(cat, clone(st), { type: 'use', player: p, cell }), p);
+    const v = valueOf(cat, s, p);
+    if (!best || v > best.v) best = { v, cell };
   });
   return best;
 }
@@ -242,8 +269,11 @@ export function cpuAction(cat, st, p) {
   }
   if (st.phase === 'react' && pl.status === 'acting') {
     if (pl.pending.length) return { type: 'place', player: p, pending: 0, cell: bestPlace(cat, st, p).cell };
+    const now = valueOf(cat, st, p);
     const g = bestGrow(cat, st, p);
-    if (g && g.v > valueOf(cat, st, p)) return { type: 'grow', player: p, cell: g.cell };
+    if (g && g.v > now) return { type: 'grow', player: p, cell: g.cell };
+    const u = bestUse(cat, st, p);
+    if (u && u.v > now) return { type: 'use', player: p, cell: u.cell };
     return { type: 'done', player: p };
   }
   return null;

@@ -9,7 +9,7 @@
 
 ## 遊ぶ
 
-GitHub Pages で公開する（準備中）。通信対戦はサーバーなしで、ブラウザ同士を [Trystero](https://github.com/dmotz/trystero) でつなぐ。部屋の合言葉を共有して入る。
+https://stm28355-ux.github.io/gateway-garden/ （試作：1人＋CPU）。通信対戦はサーバーなしで、ブラウザ同士を [Trystero](https://github.com/dmotz/trystero) でつなぐ予定（フェーズ5）。部屋の合言葉を共有して入る。
 
 ## 開発
 
@@ -18,4 +18,9 @@ npm test          # ルールのテストと拡張データの確認
 npm run validate  # 拡張データの書き方だけ確認
 ```
 
-ビルドはない。静的な HTML と JavaScript（ES モジュール）だけで動く。手元で開くときは、フォルダで簡単なサーバーを立てる（例：`npx serve .`）。
+ビルドはない。静的な HTML と JavaScript（ES モジュール）だけで動く。手元で開くときは `node tools/serve.mjs 5192` で http://localhost:5192/ 。
+
+```
+node tools/simulate.mjs 300 2,3,4 8   # CPU どうしの自動対戦
+node tools/replay.mjs 記録.json        # 画面の「記録をコピー」から同じゲームを再現
+```

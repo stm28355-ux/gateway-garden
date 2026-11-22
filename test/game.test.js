@@ -192,6 +192,21 @@ test('好きなときに使う効果：1ラウンド1回、札を動かす（#2�
   assert.throws(() => applyAction(c2, s, { type: 'use', player: 0, cell: 0 }), /もう使った/);
 });
 
+test('CPU は「使う」で札を動かして得になるなら使う（#2）', async () => {
+  const { cpuAction } = await import('../src/core/cpu.js');
+  const mover = { id: 'test-move', name: '動かす札', element: 'white', role: 'boost', growth: 'flat', cost: { white: 1 }, origin: 'test',
+    stages: [{ effects: [{ when: 'use', do: 'move', area: 'garden' }] }, { effects: [] }, { points: 1, effects: [] }] };
+  const c2 = { ...cat, cards: { ...cat.cards, 'test-move': mover } };
+  // 星読みヤギ（中央なら3点）が角にいる。最後のラウンドなので点だけを見る
+  const st = reactState([[0, '星読みヤギ', 2]]);
+  st.round = st.rounds;
+  st.players[0].garden[8] = { uid: 78, id: 'test-move', stage: 1 };
+  const a = cpuAction(c2, st, 0);
+  assert.deepEqual(a, { type: 'use', player: 0, cell: 8 });
+  const s = applyAction(c2, st, a);
+  assert.deepEqual(cpuAction(c2, s, 0).value, { from: 0, to: 4 });
+});
+
 test('whoActs：拾うのは1人ずつ、反応は全員同時', () => {
   const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 1 });
   assert.deepEqual(whoActs(st), [2]);

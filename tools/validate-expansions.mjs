@@ -23,6 +23,14 @@ async function main() {
       errors.push(`${d.name}: 読めない（${e.message}）`);
     }
   }
+  // 画面が読む一覧（expansions/index.json）に全部の拡張が載っているか
+  try {
+    const listed = JSON.parse(await readFile(join(ROOT, 'index.json'), 'utf8'));
+    for (const d of dirs) if (!listed.includes(d.name)) errors.push(`index.json に "${d.name}" がない（画面で読めない）`);
+    for (const id of listed) if (!dirs.some((d) => d.name === id)) errors.push(`index.json の "${id}" のフォルダがない`);
+  } catch (e) {
+    errors.push(`index.json が読めない（${e.message}）`);
+  }
   if (errors.length) {
     console.error(`拡張データに誤りが ${errors.length} 件あります：\n- ${errors.join('\n- ')}`);
     process.exit(1);
