@@ -65,7 +65,9 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
 .a-bundles .bundles { flex-direction: column; align-items: flex-start; gap: 5px; }
 .a-market .market { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .a-goals .goals { gap: 4px; }
-.a-goals .goal { padding: 3px 8px; }
+.a-goals .goal { padding: 2px 8px; }
+.a-goals .goal span { font-size: 11px; line-height: 1.25; }
+.a-goals .goal small { font-size: 10px; }
 .a-garden .board-slab { margin: 6px 0 0; padding: 10px; }
 .a-garden .board-slab .garden { gap: 6px; }
 .a-action .panel { min-height: 0; }
