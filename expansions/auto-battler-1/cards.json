@@ -1,0 +1,128 @@
+[
+  { "id": "auto-battler-1-001", "name": "将軍", "element": "red", "role": "chain", "cost": { "red": 2, "any": 1 }, "growth": "flat",
+    "stages": [
+      { "effects": [{ "when": "place", "do": "trigger", "area": "row", "filter": { "element": "red" } }] },
+      { "points": 1, "effects": [{ "when": "grow", "do": "trigger", "area": "cross" }] },
+      { "points": 3, "effects": [{ "when": "grow", "do": "trigger", "area": "garden", "filter": { "element": "red" } }] } ] },
+  { "id": "auto-battler-1-002", "name": "重装兵", "element": "red", "role": "score", "cost": { "red": 2 }, "growth": "late",
+    "stages": [
+      { "effects": [] },
+      { "effects": [{ "when": "end", "do": "score", "amount": 1, "per": { "area": "row", "filter": { "element": "red" } } }] },
+      { "points": 2, "effects": [{ "when": "end", "do": "score", "amount": 2, "per": { "area": "cross", "filter": { "element": "red" } } }] } ] },
+  { "id": "auto-battler-1-003", "name": "見習い剣士", "element": "red", "role": "boost", "cost": { "red": 1 }, "growth": "early",
+    "stages": [
+      { "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "row", "filter": { "element": "red" } }] },
+      { "points": 1, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "row" }] },
+      { "points": 2, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "row" }] } ] },
+  { "id": "auto-battler-1-004", "name": "聖鎧", "element": "red", "role": "score", "cost": { "red": 2 }, "growth": "flat",
+    "stages": [
+      { "effects": [] },
+      { "effects": [{ "when": "end", "do": "score", "amount": 1, "per": { "area": "adjacent", "filter": { "minStage": 3 } } }] },
+      { "points": 1, "effects": [{ "when": "end", "do": "score", "amount": 2, "per": { "area": "adjacent", "filter": { "minStage": 3 } } }] } ] },
+
+  { "id": "auto-battler-1-005", "name": "竜人", "element": "white", "role": "score", "cost": { "white": 2, "any": 1 }, "growth": "late",
+    "stages": [
+      { "effects": [] },
+      { "effects": [{ "when": "end", "do": "score", "amount": 2, "per": { "area": "adjacent", "filter": { "origin": "other" } } }] },
+      { "points": 1, "effects": [{ "when": "end", "do": "score", "amount": 3, "per": { "area": "adjacent", "filter": { "origin": "other" } } }] } ] },
+  { "id": "auto-battler-1-006", "name": "吸血鬼", "element": "white", "role": "convert", "cost": { "white": 1, "any": 1 }, "growth": "early",
+    "stages": [
+      { "effects": [{ "when": "activate", "do": "convert", "to": "white", "amount": 1 }] },
+      { "points": 1, "effects": [{ "when": "activate", "do": "convert", "to": "any", "amount": 1, "per": { "area": "adjacent", "filter": { "origin": "other" } } }] },
+      { "points": 2, "effects": [
+        { "when": "activate", "do": "convert", "to": "any", "amount": 1, "per": { "area": "adjacent", "filter": { "origin": "other" } } },
+        { "when": "activate", "do": "gain", "color": "white", "amount": 1 } ] } ] },
+  { "id": "auto-battler-1-007", "name": "魔剣", "element": "white", "role": "boost", "cost": { "white": 2 }, "growth": "flat",
+    "stages": [
+      { "effects": [{ "when": "place", "do": "stageUp", "amount": 1, "area": "adjacent", "filter": { "origin": "other" } }] },
+      { "points": 1, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "filter": { "origin": "other" } }] },
+      { "points": 3, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "adjacent" }] } ] },
+  { "id": "auto-battler-1-008", "name": "毒瓶", "element": "white", "role": "guide", "cost": { "white": 1 }, "growth": "early",
+    "stages": [
+      { "effects": [] },
+      { "points": 1, "effects": [{ "when": "pick", "do": "bend", "kind": "swap" }] },
+      { "points": 2, "effects": [
+        { "when": "pick", "do": "bend", "kind": "swap" },
+        { "when": "end", "do": "score", "amount": 1, "per": { "area": "adjacent", "filter": { "origin": "other" } } } ] } ] },
+
+  { "id": "auto-battler-1-009", "name": "雷術師", "element": "blue", "role": "generate", "cost": { "blue": 2, "any": 1 }, "growth": "flat",
+    "stages": [
+      { "effects": [{ "when": "place", "do": "gain", "color": "any", "amount": 3 }] },
+      { "points": 1, "effects": [{ "when": "activate", "do": "gain", "color": "blue", "amount": 1 }] },
+      { "points": 2, "effects": [{ "when": "activate", "do": "gain", "color": "blue", "amount": 1 }] } ] },
+  { "id": "auto-battler-1-010", "name": "呪術師", "element": "blue", "role": "boost", "cost": { "blue": 2 }, "growth": "flat",
+    "stages": [
+      { "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "filter": { "element": "blue" } }] },
+      { "points": 1, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "column" }] },
+      { "points": 3, "effects": [{ "when": "activate", "do": "stageUp", "amount": 1, "area": "column" }] } ] },
+  { "id": "auto-battler-1-011", "name": "見習い魔導士", "element": "blue", "role": "score", "cost": { "blue": 1 }, "growth": "early",
+    "stages": [
+      { "effects": [] },
+      { "points": 1, "effects": [{ "when": "activate", "do": "score", "amount": 1 }] },
+      { "points": 2, "effects": [{ "when": "activate", "do": "score", "amount": 1 }] } ] },
+  { "id": "auto-battler-1-012", "name": "預言者", "element": "blue", "role": "guide", "cost": { "blue": 2 }, "growth": "flat",
+    "stages": [
+      { "effects": [] },
+      { "points": 1, "effects": [{ "when": "pick", "do": "bend", "kind": "swap" }] },
+      { "points": 3, "effects": [
+        { "when": "pick", "do": "bend", "kind": "swap" },
+        { "when": "always", "do": "discount", "amount": 1, "area": "garden", "filter": { "element": "blue" } } ] } ] },
+
+  { "id": "auto-battler-1-013", "name": "毒蛇", "element": "green", "role": "generate", "cost": { "green": 1 }, "growth": "early",
+    "stages": [
+      { "effects": [{ "when": "activate", "do": "gain", "color": "green", "amount": 1 }] },
+      { "points": 1, "effects": [
+        { "when": "activate", "do": "gain", "color": "green", "amount": 1 },
+        { "when": "activate", "do": "gain", "color": "green", "amount": 1, "per": { "area": "adjacent", "filter": { "element": "green" } } } ] },
+      { "points": 2, "effects": [
+        { "when": "activate", "do": "gain", "color": "green", "amount": 1 },
+        { "when": "activate", "do": "gain", "color": "green", "amount": 1, "per": { "area": "adjacent", "filter": { "element": "green" } } } ] } ] },
+  { "id": "auto-battler-1-014", "name": "鷹", "element": "green", "role": "guide", "cost": { "green": 2 }, "growth": "flat",
+    "stages": [
+      { "effects": [] },
+      { "points": 1, "effects": [{ "when": "pick", "do": "bend", "kind": "add", "per": { "area": "row", "filter": { "element": "green" } } }] },
+      { "points": 3, "effects": [
+        { "when": "pick", "do": "bend", "kind": "add", "per": { "area": "row", "filter": { "element": "green" } } },
+        { "when": "activate", "do": "gain", "color": "green", "amount": 1 } ] } ] },
+  { "id": "auto-battler-1-015", "name": "古の巨獣", "element": "green", "role": "generate", "cost": { "green": 3, "any": 1 }, "growth": "late",
+    "stages": [
+      { "effects": [] },
+      { "points": 1, "effects": [{ "when": "grow", "do": "gain", "color": "any", "amount": 4 }] },
+      { "points": 4, "effects": [{ "when": "grow", "do": "gain", "color": "any", "amount": 4 }] } ] },
+  { "id": "auto-battler-1-016", "name": "獣のトーテム", "element": "green", "role": "boost", "cost": { "green": 2, "any": 1 }, "growth": "flat",
+    "stages": [
+      { "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "adjacent", "filter": { "element": "green" } }] },
+      { "points": 1, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "cross", "filter": { "element": "green" } }] },
+      { "points": 3, "effects": [{ "when": "always", "do": "discount", "amount": 1, "area": "garden", "filter": { "element": "green" } }] } ] },
+
+  { "id": "auto-battler-1-017", "name": "電磁塔", "element": "yellow", "role": "guide", "cost": { "yellow": 2, "any": 1 }, "growth": "late",
+    "stages": [
+      { "effects": [{ "when": "place", "do": "gain", "color": "yellow", "amount": 1 }] },
+      { "points": 1, "effects": [{ "when": "pick", "do": "bend", "kind": "add", "per": { "area": "column", "filter": { "element": "yellow" } } }] },
+      { "points": 2, "effects": [
+        { "when": "pick", "do": "bend", "kind": "add", "per": { "area": "column", "filter": { "element": "yellow" } } },
+        { "when": "end", "do": "score", "amount": 1, "per": { "area": "column" } } ] } ] },
+  { "id": "auto-battler-1-018", "name": "修理工房", "element": "yellow", "role": "generate", "cost": { "yellow": 2 }, "growth": "late",
+    "stages": [
+      { "effects": [{ "when": "activate", "do": "gain", "color": "yellow", "amount": 1 }] },
+      { "points": 1, "effects": [
+        { "when": "activate", "do": "gain", "color": "yellow", "amount": 1 },
+        { "when": "always", "do": "discount", "amount": 1, "area": "adjacent" } ] },
+      { "points": 4, "effects": [
+        { "when": "activate", "do": "gain", "color": "yellow", "amount": 2 },
+        { "when": "always", "do": "discount", "amount": 1, "area": "cross" } ] } ] },
+  { "id": "auto-battler-1-019", "name": "ゴーレム", "element": "yellow", "role": "score", "cost": { "yellow": 3 }, "growth": "late",
+    "stages": [
+      { "effects": [] },
+      { "effects": [
+        { "when": "end", "do": "score", "amount": 2 },
+        { "when": "end", "do": "score", "amount": 1, "per": { "area": "adjacent", "filter": { "element": "yellow" } } } ] },
+      { "points": 2, "effects": [
+        { "when": "end", "do": "score", "amount": 4 },
+        { "when": "end", "do": "score", "amount": 1, "per": { "area": "adjacent", "filter": { "element": "yellow" } } } ] } ] },
+  { "id": "auto-battler-1-020", "name": "雷の宝珠", "element": "yellow", "role": "chain", "cost": { "yellow": 1, "any": 1 }, "growth": "early",
+    "stages": [
+      { "effects": [{ "when": "place", "do": "trigger", "area": "column" }] },
+      { "points": 1, "effects": [{ "when": "grow", "do": "trigger", "area": "column" }] },
+      { "points": 2, "effects": [{ "when": "grow", "do": "trigger", "area": "cross", "filter": { "element": "yellow" } }] } ] }
+]
