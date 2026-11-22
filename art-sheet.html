@@ -16,14 +16,19 @@
 <body>
 <h1>住人の絵の一覧（基本セット）</h1>
 <div class="grid" id="g"></div>
+<h1 style="margin-top:16px">住人の絵の一覧（号令の戦場）</h1>
+<div class="grid" id="ab"></div>
 <h1 style="margin-top:16px">お題カードの絵</h1>
 <div class="grid" id="goals"></div>
 <script type="module">
 import { baseArt } from './src/art/base.js';
 import { goalArt } from './src/art/goals.js';
+import { autoBattlerArt } from './src/art/auto-battler-1.js';
 import { GOALS } from './src/core/goals.js';
 const cards = await (await fetch('expansions/base/cards.json')).json();
 document.getElementById('g').innerHTML = cards.map((c) => `<figure>${baseArt(c.name, 96) ?? '（まだ）'}<div class="small">${baseArt(c.name, 32) ?? ''}</div><figcaption>${c.name}</figcaption></figure>`).join('');
+const ab = await (await fetch('expansions/auto-battler-1/cards.json')).json();
+document.getElementById('ab').innerHTML = ab.map((c) => `<figure>${autoBattlerArt(c.name, 96) ?? '（まだ）'}<div class="small">${autoBattlerArt(c.name, 32) ?? ''}</div><figcaption>${c.name}</figcaption></figure>`).join('');
 document.getElementById('goals').innerHTML = Object.entries(GOALS).map(([id, x]) => `<figure>${goalArt(id, 96)}<div class="small">${goalArt(id, 40)}</div><figcaption><b>${x.name}</b><br><small>${x.text}</small></figcaption></figure>`).join('');
 </script>
 </body>

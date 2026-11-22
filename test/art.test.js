@@ -27,3 +27,10 @@ test('お題カードはどれも絵がある（工程7の判定 Y3）', async (
   const { GOALS } = await import('../src/core/goals.js');
   for (const id of Object.keys(GOALS)) assert.match(goalArt(id, 32), /^<svg/, `お題「${GOALS[id].name}」の絵がない`);
 });
+
+test('拡張「号令の戦場」の住人はどれも絵がある（判定 AB1：本家の駒の絵）', async () => {
+  const { cardArt } = await import('../src/art/index.js');
+  const ab = JSON.parse(readFileSync(new URL('../expansions/auto-battler-1/cards.json', import.meta.url), 'utf8'));
+  for (const c of ab) assert.match(cardArt({ ...c, origin: 'auto-battler-1' }, 32) ?? '', /^<svg/, `「${c.name}」の絵がない`);
+  for (const c of cards) assert.match(cardArt({ ...c, origin: 'base' }, 32) ?? '', /^<svg/, `「${c.name}」の絵がない`);
+});

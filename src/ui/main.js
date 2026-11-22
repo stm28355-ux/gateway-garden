@@ -11,7 +11,7 @@ import { APP_VERSION } from '../version.js';
 import { filterHtml, listHtml, allState, toggleFilter, leftCounts } from './cardlist.js';
 import { installMemo } from './memo.js';
 import { gemSvg } from './gems.js';
-import { baseArt } from '../art/base.js';
+import { cardArt } from '../art/index.js';
 import { goalArt } from '../art/goals.js';
 
 const memo = installMemo(); // 落書き（#6）。自分の画面だけに残る
@@ -233,9 +233,9 @@ function manaRow(m) {
 // 値段を宝石で（決まった色の数だけ並べ、好きな色は虹の丸）
 const costGems = (cost) => Object.entries(cost).flatMap(([c, n]) => Array(n).fill(c)).map((c) => manaDot(c, '', 14)).join('');
 
-// 住人の絵。基本セットは描いてある（src/art）。まだ絵のない世界のカードは、世界の名前を出す
+// 住人の絵（src/art/index.js が世界ごとに選ぶ）。まだ絵のない世界のカードは、世界の名前を出す
 function artHtml(d, size) {
-  return baseArt(d.name, size) ?? `<span class="noart">${esc(worldName(d.origin))}</span>`;
+  return cardArt(d, size) ?? `<span class="noart">${esc(worldName(d.origin))}</span>`;
 }
 
 const nameCls = (name) => (name.length >= 8 ? 'longer' : name.length >= 7 ? 'long' : '');
