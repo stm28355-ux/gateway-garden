@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gateway Garden 基本セットの試し描き</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --gold: #c9a45a; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 30% 15%, #2f3b5c, #151a2b 70%); color: #f3ead2; font-family: "Shippori Mincho", serif; }
+  header { padding: 14px 18px 4px; }
+  header h1 { margin: 0 0 4px; font-size: 20px; }
+  header p { margin: 0; font-size: 13px; color: #d8cfb5; max-width: 980px; }
+  section { padding: 10px 18px; }
+  h2 { font-size: 15px; color: var(--gold); margin: 12px 0 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .card { width: 176px; height: 250px; box-sizing: border-box; padding: 8px; position: relative; display: flex; flex-direction: column; gap: 4px;
+    background: linear-gradient(170deg, #273152, #1b2238); border: 2px solid var(--gold); border-radius: 10px;
+    box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--c) 45%, transparent), 0 4px 14px rgba(0,0,0,.4); }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+  .name { font-weight: 700; font-size: 14px; }
+  .art { height: 104px; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--c) 38%, transparent), transparent 70%); }
+  .meta { font-size: 11px; opacity: .8; }
+  .fx { font-size: 11px; line-height: 1.5; }
+  .kw { font-weight: 700; border-bottom: 1px dotted currentColor; }
+  .cost { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 3px; }
+  .world { position: absolute; right: 8px; bottom: 7px; font-size: 11px; opacity: .8; }
+  .garden { display: grid; grid-template-columns: repeat(3, 52px); gap: 4px; }
+  .cell { width: 52px; height: 52px; display: grid; place-items: center; background: rgba(255,255,255,.04); border: 1px solid #c9a45a88; border-radius: 6px; }
+  .label { font-size: 12px; opacity: .75; margin-bottom: 4px; }
+  .gems { display: flex; gap: 14px; align-items: center; }
+  .gems figure { margin: 0; text-align: center; font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>基本セットの試し描き（6匹）</h1>
+  <p>方向（工程7の判定 R5）：基本セットは「星の書」寄り。絵は32×32、太い縁取り、ポップでかわいく。顔は描かず、形と持ち物で見分ける。カードは実際の大きさ、庭は「ほかの人の盤面」くらいの小ささ。魔素は M1（宝石の切り方：白＝丸・赤＝三角・青＝菱形・緑＝六角・黄＝四角、好きな色＝虹）。</p>
+</header>
+<section>
+  <h2>カード</h2>
+  <div class="row" id="cards"></div>
+</section>
+<section class="row" style="gap:40px">
+  <div><h2>小さい庭（ほかの人の盤面くらい）</h2><div class="garden" id="garden"></div></div>
+  <div><h2>魔素（M1）</h2><div class="gems" id="gems"></div></div>
+</section>
+<script type="module">
+import { baseArt } from './src/art/base.js';
+const COLORS = { white: '#efe9d6', red: '#e3604f', blue: '#4f8fe0', green: '#4ea860', yellow: '#e8bf35' };
+const DARK = { white: '#9e9476', red: '#9c3429', blue: '#25579e', green: '#246b33', yellow: '#9c7612' };
+// M1：宝石の切り方（ものを表さない形）
+const SHAPES = {
+  white: '<circle cx="12" cy="12" r="9"/>',
+  red: '<path d="M12 3 L21 19 L3 19 Z"/>',
+  blue: '<path d="M12 2 L21 12 L12 22 L3 12 Z"/>',
+  green: '<path d="M7 3.5 L17 3.5 L22 12 L17 20.5 L7 20.5 L2 12 Z"/>',
+  yellow: '<rect x="4" y="4" width="16" height="16" rx="1.5"/>',
+};
+const gem = (c, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><g fill="${COLORS[c]}" stroke="${DARK[c]}" stroke-width="2" stroke-linejoin="round">${SHAPES[c]}</g><path d="M8 8 l3 -2" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const any = (s = 18) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24"><defs><linearGradient id="rb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3604f"/><stop offset=".33" stop-color="#e8bf35"/><stop offset=".66" stop-color="#4ea860"/><stop offset="1" stop-color="#4f8fe0"/></linearGradient></defs><circle cx="12" cy="12" r="9" fill="url(#rb)" stroke="#fff" stroke-width="2"/></svg>`;
+
+const CARDS = [
+  { name: '灯りうさぎ', c: 'white', s: '★★☆', meta: '白・生成・早熟', fx: '<span class="kw">開花</span>：白を2つ得る', cost: ['white'] },
+  { name: '道しるべフクロウ', c: 'white', s: '★★☆', meta: '白・導き・平ら', fx: '<span class="kw">摘み</span>：摘む束の1つを、場の別の束の1つと入れ替えてから摘む', cost: ['white', 'white'] },
+  { name: '火の粉トカゲ', c: 'red', s: '★☆☆', meta: '赤・生成・平ら', fx: '<span class="kw">開花</span>：赤を1つ得る', cost: ['red', 'red'] },
+  { name: 'しずくクラゲ', c: 'blue', s: '★★★', meta: '青・生成・平ら', fx: '<span class="kw">開花</span>：好きな色を2つ得る', cost: ['blue', 'any'] },
+  { name: '芽吹きリス', c: 'green', s: '★☆☆', meta: '緑・生成・晩成', fx: '<span class="kw">開花</span>：緑を1つ得る', cost: ['green', 'green'] },
+  { name: 'ひだまりハチ', c: 'yellow', s: '★★★', meta: '黄・生成・早熟', fx: '<span class="kw">開花</span>：黄を2つ得る<br><span class="kw">実り</span>：残った魔素2個につき1点', cost: ['yellow', 'yellow'] },
+];
+document.getElementById('cards').innerHTML = CARDS.map((d) => `<div class="card" style="--c:${COLORS[d.c]}">
+  <div class="top"><span class="name">${d.name}</span><span>${d.s}</span></div>
+  <div class="art">${baseArt(d.name, 96)}</div>
+  <div class="meta">${d.meta}</div><div class="fx">${d.fx}</div>
+  <div class="cost">${d.cost.map((m) => (m === 'any' ? any() : gem(m, 18))).join('')}</div>
+  <div class="world">基本</div></div>`).join('');
+const g = ['灯りうさぎ', null, '火の粉トカゲ', '道しるべフクロウ', '芽吹きリス', null, 'しずくクラゲ', null, 'ひだまりハチ'];
+document.getElementById('garden').innerHTML = g.map((n) => `<div class="cell">${n ? baseArt(n, 44) : ''}</div>`).join('');
+document.getElementById('gems').innerHTML = [['white', '白'], ['red', '赤'], ['blue', '青'], ['green', '緑'], ['yellow', '黄']].map(([c, j]) => `<figure>${gem(c, 30)}<figcaption>${j}</figcaption></figure>`).join('') + `<figure>${any(30)}<figcaption>好きな色</figcaption></figure>`;
+</script>
+</body>
+</html>
