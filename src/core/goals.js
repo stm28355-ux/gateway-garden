@@ -48,6 +48,24 @@ export const GOALS = {
       return y && y.stage >= 2 && defOf(cat, y).element === defOf(cat, x).element;
     })),
   },
+  // 拡張を混ぜたゲームだけに出る（出身が2種類以上のとき）
+  'world-cross': {
+    name: '世界の交わり', text: '出身の違う札どうしが隣り合う所が3か所', needsOrigins: 2,
+    check: (cat, g) => {
+      let n = 0;
+      g.forEach((x, i) => {
+        if (!x) return;
+        for (const j of adjacent(i)) if (j > i && g[j] && defOf(cat, g[j]).origin !== defOf(cat, x).origin) n++;
+      });
+      return n >= 3;
+    },
+  },
 };
 
-export const BASE_GOAL_IDS = Object.keys(GOALS);
+export const BASE_GOAL_IDS = Object.keys(GOALS).filter((g) => !GOALS[g].needsOrigins);
+
+// そのゲームで出せる目標札（出身の数で決まる）
+export function goalPool(cat) {
+  const origins = Object.keys(cat.versions).length;
+  return Object.keys(GOALS).filter((g) => (GOALS[g].needsOrigins ?? 1) <= origins);
+}

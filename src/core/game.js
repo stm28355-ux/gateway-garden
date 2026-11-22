@@ -4,7 +4,7 @@
 import { ELEMENTS, GROWTH } from './schema.js';
 import { randInt, shuffle } from './rng.js';
 import { CELLS, areaCells, position } from './garden.js';
-import { GOALS, BASE_GOAL_IDS, FIRST_POINTS, LATER_POINTS } from './goals.js';
+import { GOALS, goalPool, FIRST_POINTS, LATER_POINTS } from './goals.js';
 
 export const BASE_LIMIT = 10;  // D4
 export const MARKET_SIZE = 6;  // D7
@@ -151,7 +151,7 @@ export function createGame(cat, { players, rounds = 8, seed = 1, copies = 2 }) {
   shuffle(st, st.deck);
   st.market = Array.from({ length: MARKET_SIZE }, () => draw(st));
   st.bundles = Array.from({ length: players.length === 2 ? 4 : 5 }, () => randomBundle(st)); // D6
-  st.goals = shuffle(st, [...BASE_GOAL_IDS]).slice(0, GOAL_COUNT);
+  st.goals = shuffle(st, goalPool(cat)).slice(0, GOAL_COUNT);
   for (const g of st.goals) st.claims[g] = [];
   st.draftOrder = [...pickOrder(st)].reverse(); // D1：手番の逆順
   return st;
