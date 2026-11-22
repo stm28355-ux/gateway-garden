@@ -1,0 +1,237 @@
+// CPU「ふつう」（D17）：その場で一番得な手を選ぶ。先は読まず、拾う手は「拾ってからこのラウンドの庭をどう触るか」まで試して比べる。
+// 自動対戦で札の強さを測る基準にも使う。好きなときに使う効果（use）はまだ使わない（Issue #2）。
+import { ELEMENTS } from './schema.js';
+import { GOALS } from './goals.js';
+import {
+  applyMut, autoPay, defOf, stageOf, growCost, limitOf, manaTotal, pickOrder, scoreOf, emptyMana, countIn,
+} from './game.js';
+
+const W = { prod: 0.45, mana: 0.4, growth: 0.35, goal: 4 }; // 評価の重み（調整で直す）
+
+const clone = (x) => structuredClone(x);
+const light = (st) => clone({ ...st, deck: [], discardPile: [] }); // 試すときは山を持たない
+
+// 色ごとの欲しさ：庭の札をあと1段階育てるのに要る数
+export function wantOf(cat, pl) {
+  const want = emptyMana();
+  pl.garden.forEach((inst, cell) => {
+    if (inst && inst.stage < 3) want[defOf(cat, inst).element] += growCost(cat, pl, cell);
+  });
+  for (const card of pl.pending) want[cat.cards[card.id].element] += 1;
+  return want;
+}
+
+// 毎ラウンドの「生む力」のおおよそ（素材の数で数える）
+function prodOf(cat, pl) {
+  let v = 0;
+  pl.garden.forEach((inst, cell) => {
+    if (!inst) return;
+    for (const e of stageOf(cat, inst).effects) {
+      const mult = e.per ? countIn(cat, pl, cell, e.per) : 1;
+      const n = (e.amount ?? 1) * mult;
+      if (e.when === 'activate' && e.do === 'gain') v += e.color === 'any' ? n * 1.2 : n;
+      else if (e.when === 'activate' && e.do === 'convert') v += 0.3 * n;
+      else if (e.when === 'activate' && e.do === 'stageUp') v += 1.5 * n;
+      else if (e.when === 'pick' && e.do === 'bend') v += e.kind === 'add' ? 0.7 : 0.5;
+      else if (e.when === 'always' && e.do === 'discount') v += 0.4 * n;
+      else if (e.when === 'always' && e.do === 'limit') v += 0.1 * n;
+    }
+  });
+  return v;
+}
+
+// 盤面の値打ち。最後のラウンドでは点だけを見る。
+export function valueOf(cat, st, p) {
+  const pl = st.players[p];
+  const left = st.rounds - st.round;
+  let v = scoreOf(cat, st, p).total;
+  if (left > 0) {
+    const usable = Math.min(manaTotal(pl.mana) + manaTotal(pl.incoming), limitOf(cat, pl));
+    v += W.prod * prodOf(cat, pl) * left + W.mana * usable;
+    for (const inst of pl.garden) {
+      if (!inst || inst.stage >= 3) continue;
+      const d = defOf(cat, inst);
+      v += W.growth * ((d.stages[inst.stage].points ?? 0) - (d.stages[inst.stage - 1].points ?? 0));
+    }
+  }
+  for (const g of st.goals) {
+    if (!st.claims[g].some((x) => x.player === p) && GOALS[g].check(cat, pl.garden)) v += W.goal;
+  }
+  return v;
+}
+
+// ---- 選ぶ所 --------------------------------------------------------------
+
+export function chooseValue(cat, st, p) {
+  const pl = st.players[p];
+  const ch = pl.choice;
+  const want = wantOf(cat, pl);
+  const short = (c) => want[c] - pl.mana[c];
+  const best = (list, score) => list.reduce((a, b) => (score(b) > score(a) ? b : a));
+  switch (ch.kind) {
+    case 'color': return best(ELEMENTS, short);
+    case 'convert': {
+      const from = best(ch.from, (c) => -short(c));
+      const to = ch.to === 'any' ? best(ELEMENTS.filter((c) => c !== from), short) : ch.to;
+      return short(from) < 0 && short(to) > 0 ? { from, to } : null;
+    }
+    case 'stageUp': return best(ch.options, (c) => {
+      const inst = pl.garden[c];
+      const d = defOf(cat, inst);
+      return (d.stages[inst.stage].points ?? 0) - (d.stages[inst.stage - 1].points ?? 0);
+    });
+    case 'move': return null;
+    case 'discard': {
+      const left = { ...pl.mana };
+      const out = emptyMana();
+      for (let k = 0; k < ch.amount; k++) {
+        const c = best(ELEMENTS.filter((x) => left[x] > 0), (x) => -(want[x] - left[x]));
+        left[c]--; out[c]++;
+      }
+      return out;
+    }
+    default: return null;
+  }
+}
+
+function settle(cat, st, p) {
+  while (st.players[p].choice) applyMut(cat, st, { type: 'choose', player: p, value: chooseValue(cat, st, p) });
+  return st;
+}
+
+// ---- 反応フェーズ（庭を触る） --------------------------------------------
+
+function placeCandidates(pl) {
+  const empty = pl.garden.map((x, i) => (x ? -1 : i)).filter((i) => i >= 0);
+  return empty.length ? empty : [0, 1, 2, 3, 4, 5, 6, 7, 8];
+}
+
+function bestPlace(cat, st, p) {
+  let best = null;
+  for (const cell of placeCandidates(st.players[p])) {
+    const s = settle(cat, applyMut(cat, clone(st), { type: 'place', player: p, pending: 0, cell }), p);
+    const v = valueOf(cat, s, p);
+    if (!best || v > best.v) best = { v, cell, s };
+  }
+  return best;
+}
+
+function bestGrow(cat, st, p) {
+  const pl = st.players[p];
+  let best = null;
+  pl.garden.forEach((inst, cell) => {
+    if (!inst || inst.stage >= 3 || pl.mana[defOf(cat, inst).element] < growCost(cat, pl, cell)) return;
+    const s = settle(cat, applyMut(cat, clone(st), { type: 'grow', player: p, cell }), p);
+    const v = valueOf(cat, s, p);
+    if (!best || v > best.v) best = { v, cell, s };
+  });
+  return best;
+}
+
+// このラウンドの庭の触り方を、置く→育てるの順に欲張りで決めて、その後の盤面を返す
+function greedyReact(cat, st, p) {
+  let s = st;
+  while (s.players[p].pending.length) s = bestPlace(cat, s, p).s;
+  for (;;) {
+    const g = bestGrow(cat, s, p);
+    if (!g || g.v <= valueOf(cat, s, p)) return s;
+    s = g.s;
+  }
+}
+
+// ---- 拾うフェーズ ----------------------------------------------------------
+
+function bendCells(cat, pl, kind) {
+  return pl.garden.map((inst, cell) => (inst && stageOf(cat, inst).effects.some((e) => e.when === 'pick' && e.do === 'bend' && e.kind === kind) ? cell : -1))
+    .filter((c) => c >= 0);
+}
+
+function bundleScore(colors, want, mana) {
+  const left = { ...mana };
+  let v = 0;
+  for (const c of colors) { v += left[c] < want[c] ? 1 : 0.5; left[c]++; }
+  return v;
+}
+
+function bestSwap(st, b, cell, want, mana) {
+  let best = null;
+  st.bundles.forEach((other, j) => {
+    if (j === b) return;
+    for (let give = 0; give < 3; give++) {
+      for (let k = 0; k < 3; k++) {
+        const t = [...st.bundles[b]];
+        t[give] = other[k];
+        const v = bundleScore(t, want, mana);
+        if (!best || v > best.v) best = { v, bend: { cell, kind: 'swap', give, other: j, otherIdx: k } };
+      }
+    }
+  });
+  return best?.bend;
+}
+
+function pickCandidates(cat, st, p) {
+  const pl = st.players[p];
+  const want = wantOf(cat, pl);
+  const adds = bendCells(cat, pl, 'add').map((cell) => ({ cell, kind: 'add' }));
+  const swaps = bendCells(cat, pl, 'swap');
+  const out = [];
+  st.bundles.forEach((_, b) => {
+    const bendSets = [adds];
+    if (swaps.length) bendSets.push([bestSwap(st, b, swaps[0], want, pl.mana), ...adds]);
+    for (const bends of bendSets) {
+      const base = { type: 'pick', player: p, bundle: b, bends, buy: null };
+      out.push(base);
+      const after = applyMut(cat, light(st), base).players[p].mana;
+      st.market.forEach((card, i) => {
+        if (!card) return;
+        const pay = autoPay(cat.cards[card.id].cost, after, want);
+        if (pay) out.push({ ...base, buy: { market: i, pay } });
+      });
+    }
+  });
+  return out;
+}
+
+function evalPick(cat, st, p, action) {
+  const s = applyMut(cat, light(st), action);
+  if (s.phase !== 'react') { // 自分の後にまだ拾う人がいる：自分だけ庭を触る形で試す
+    s.phase = 'react';
+    s.players[p].status = 'acting';
+  }
+  return valueOf(cat, greedyReact(cat, s, p), p);
+}
+
+// ---- 入口 ----------------------------------------------------------------
+
+export function cpuAction(cat, st, p) {
+  const pl = st.players[p];
+  if (pl.choice) return { type: 'choose', player: p, value: chooseValue(cat, st, p) };
+  if (st.phase === 'draft' && st.draftOrder[st.turn] === p) {
+    let best = null;
+    st.market.forEach((card, i) => {
+      if (!card) return;
+      const s = light(st);
+      s.players[p].pending.push(card);
+      s.phase = 'react';
+      s.players[p].status = 'acting';
+      const v = valueOf(cat, greedyReact(cat, s, p), p) - 0.3 * Object.values(cat.cards[card.id].cost).reduce((a, b) => a + b, 0);
+      if (!best || v > best.v) best = { v, i };
+    });
+    return { type: 'draft', player: p, market: best.i };
+  }
+  if (st.phase === 'pick' && pickOrder(st)[st.turn] === p) {
+    let best = null;
+    for (const a of pickCandidates(cat, st, p)) {
+      const v = evalPick(cat, st, p, a);
+      if (!best || v > best.v) best = { v, a };
+    }
+    return best.a;
+  }
+  if (st.phase === 'react' && pl.status === 'acting') {
+    if (pl.pending.length) return { type: 'place', player: p, pending: 0, cell: bestPlace(cat, st, p).cell };
+    const g = bestGrow(cat, st, p);
+    if (g && g.v > valueOf(cat, st, p)) return { type: 'grow', player: p, cell: g.cell };
+    return { type: 'done', player: p };
+  }
+  return null;
+}
