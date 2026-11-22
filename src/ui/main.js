@@ -4,7 +4,7 @@ import { buildCatalog, applyAction, pickOrder, autoPay, buyCost, growCost, limit
 import { wantOf } from '../core/cpu.js';
 import { ELEMENTS, GROWTH } from '../core/schema.js';
 import { GOALS } from '../core/goals.js';
-import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars, glossaryHtml, setExplain, getExplain } from './describe.js';
+import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars, glossaryHtml, setExplain } from './describe.js';
 import { GameHost, HostRoom, GuestClient } from '../net/session.js';
 import { openTrystero } from '../net/trystero.js';
 import { APP_VERSION } from '../version.js';
@@ -49,7 +49,7 @@ function stored(key, value) {
   } catch { /* 保存できない環境でも遊べる */ }
   return null;
 }
-setExplain(stored('gg-explain') === 'on'); // 「説明も書く」（はじめは「なし」）
+setExplain(false); // 説明はマウスを置いたときに出す。ゲーム画面の「説明：あり／なし」は工程7の判定 Z1 でなくした
 
 function myToken() { // 抜けて戻ったとき、同じ席に戻るための印
   let t = stored('gg-token');
@@ -450,17 +450,20 @@ function choicePanel(pl) {
   }
 }
 
-// 上の帯の相手（奥に座っている人）。押すとその人の庭を詳しく見られる。反応フェーズ中は、view が始まった時のまま
+// 上の帯の相手（奥に座っている人）。工程7の判定 Z1：タブのような1行（名前の隣に魔素）、押すと庭を詳しく見られる。
+// 手入れフェーズ中は、フェーズが始まった時のまま
 function opponentBoxes() {
   return st.players.filter((p) => p.index !== ME).map((pl) => {
     const s = scoreOf(cat, st, pl.index);
     const status = st.phase === 'react' ? (pl.status === 'done' ? '終えた' : '考え中') : '';
     const who = pl.away ? '抜けた・CPU が代わり' : (pl.cpu ? 'CPU' : '');
     const now = (st.phase === 'pick' && pickOrder(st)[st.turn] === pl.index) || (st.phase === 'draft' && st.draftOrder[st.turn] === pl.index);
-    return `<button class="opp-box ${now ? 'now' : ''} ${oppOpen === pl.index ? 'open' : ''}" data-act="opp" data-p="${pl.index}">
-      <span class="ob-head"><b>${esc(pl.name)}</b><small>${who}</small><span class="ob-score">${s.total}点</span></span>
-      <span class="ob-line">${ELEMENTS.map((c) => `<span class="mana-item">${manaDot(c, '', 13)}${pl.mana[c]}</span>`).join('')}</span>
-      <span class="ob-line muted">${status || (now ? '摘んでいます' : '')}${pl.pending.length ? `・手元${pl.pending.length}枚` : ''}<span class="ob-more">押すと詳しく</span></span>
+    return `<button class="opp-box ${now ? 'now' : ''} ${oppOpen === pl.index ? 'open' : ''}" data-act="opp" data-p="${pl.index}" title="${who ? `${who}・` : ''}押すと庭を詳しく見る">
+      <b class="ob-name">${esc(pl.name)}</b>
+      <span class="ob-mana">${ELEMENTS.map((c) => `<span class="mana-item">${manaDot(c, '', 13)}${pl.mana[c]}</span>`).join('')}</span>
+      ${pl.pending.length ? `<small class="muted">手元${pl.pending.length}</small>` : ''}
+      ${status ? `<small class="ob-status ${pl.status === 'done' ? 'done' : ''}">${status}</small>` : ''}
+      <span class="ob-score">${s.total}点</span>
     </button>`;
   }).join('');
 }
@@ -522,34 +525,35 @@ function render() {
   const me = scoreOf(cat, st, ME);
   const lost = session.problem ? `<p class="error banner">${esc(session.problem)}</p>` : '';
   const shownError = error || session.error || '';
-  // 対面の配置（工程7・人の案）：奥（上の帯）に相手、真ん中に場、手前に自分の庭。右のふちに「できごと」「カードの一覧」の引き出し
+  // 対面の配置（工程7・人の案、判定 Z1 で詰めた）：奥（上の帯）に相手、真ん中に場、手前に自分の庭とすること。
+  // 右のふちのタブに「できごと」「カードの一覧」「メモ」「記録をコピー」
   app.innerHTML = `
   <header class="topbar">
-    <div class="tb-round"><b>ラウンド ${st.round} / ${st.rounds}</b><span class="tb-phase">${phaseName()}</span><small>${orderHtml()}</small></div>
+    <div class="tb-round"><b>ラウンド ${st.round} / ${st.rounds}</b><span class="tb-phase">${phaseName()}</span><small>${orderHtml()}</small>${room ? `<small class="muted">部屋 ${esc(room.code)}</small>` : ''}</div>
     <div class="tb-opps">${opponentBoxes()}</div>
-    <div class="tb-tools">
-      <button data-act="memo">メモ</button>
-      <button data-act="explain" title="キーワードの後ろに説明を書くか">説明：${getExplain() ? 'あり' : 'なし'}</button>
-      ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
-      ${room ? `<small class="muted">部屋 ${esc(room.code)}</small>` : ''}
-    </div>
   </header>
   ${lost}
   <main class="table">
-    <section class="sec a-bundles"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div></section>
-    <section class="sec a-market"><h2 class="sec-title">場のカード（招く）</h2><div class="market">${marketHtml()}</div></section>
-    <section class="sec a-goals"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
-    <section class="sec a-garden mine">
-      <h2 class="sec-title">${esc(pl.name)} の庭</h2>
-      <div class="me-head"><span class="me-score">${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span><span class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></span></div>
-      <div class="board-slab">${gardenHtml(ME)}</div>
-    </section>
-    <section class="sec a-detail"><h2 class="sec-title">カードの説明</h2><div class="detail-box">${detailHtml()}</div></section>
-    <section class="sec a-action"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
+    <div class="row-top">
+      <section class="sec a-bundles"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div></section>
+      <section class="sec a-market"><h2 class="sec-title">場のカード（招く）</h2><div class="market">${marketHtml()}</div></section>
+      <section class="sec a-goals"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
+    </div>
+    <div class="row-bottom">
+      <section class="sec a-garden mine">
+        <h2 class="sec-title">${esc(pl.name)} の庭</h2>
+        <div class="me-head"><span class="me-score">${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span><span class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></span></div>
+        <div class="board-slab">${gardenHtml(ME)}</div>
+      </section>
+      <section class="sec a-action"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
+      <section class="sec a-detail"><h2 class="sec-title">カードの説明</h2><div class="detail-box">${detailHtml()}</div></section>
+    </div>
   </main>
   <nav class="sidetabs">
     <button data-act="log-open">できごと</button>
     <button data-act="pool">カードの一覧</button>
+    <button data-act="memo">メモ</button>
+    ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
   </nav>
   ${endHtml()}
   ${poolOpen ? poolHtml() : ''}
@@ -613,7 +617,6 @@ app.addEventListener('click', async (ev) => {
   const n = (k) => Number(d[k]);
   switch (d.act) {
     case 'memo': memo.toggle(); return;
-    case 'explain': setExplain(!getExplain()); stored('gg-explain', getExplain() ? 'on' : 'off'); break;
     case 'pool': poolOpen = true; break;
     case 'log-open': logOpen = true; break;
     case 'log-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; logOpen = false; break;

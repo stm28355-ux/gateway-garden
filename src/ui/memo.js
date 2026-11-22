@@ -46,17 +46,24 @@ export function installMemo() {
     for (const k of strokes) drawStroke(k);
   }
 
-  // 紙の大きさをページ全体に合わせる（覚えている線を描き直す）
+  // 紙の大きさをページ全体に合わせる（紙そのものは測らない。小さくもなる。覚えている線を描き直す）。
+  // 書いていなくて線もないときは大きさ0にして、紙のせいでスクロールが出ないようにする（工程7の判定 Z1：1画面に収める）
   function fit() {
-    // 窓の幅はスクロールバーを除いた clientWidth で取る（innerWidth だと紙がはみ出して横スクロールが出る）
-    const root = document.documentElement;
-    const w = Math.max(root.scrollWidth, root.clientWidth);
-    const h = Math.max(root.scrollHeight, root.clientHeight);
-    if (canvas.width >= w && canvas.height >= h) return;
-    canvas.width = Math.max(w, canvas.width);
-    canvas.height = Math.max(h, canvas.height);
-    canvas.style.width = `${canvas.width}px`;
-    canvas.style.height = `${canvas.height}px`;
+    let w = 0;
+    let h = 0;
+    if (on || strokes.length) {
+      canvas.style.display = 'none';
+      // 窓の幅はスクロールバーを除いた clientWidth で取る（innerWidth だと紙がはみ出して横スクロールが出る）
+      const root = document.documentElement;
+      w = Math.max(root.scrollWidth, root.clientWidth);
+      h = Math.max(root.scrollHeight, root.clientHeight);
+      canvas.style.display = '';
+    }
+    if (canvas.width === w && canvas.height === h) return;
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
     redraw();
   }
   window.addEventListener('resize', fit);
@@ -119,6 +126,7 @@ export function installMemo() {
     } else if (kind === 'clear') {
       strokes = [];
       redraw();
+      fit();
     } else if (kind === 'hide') {
       const hide = canvas.style.visibility !== 'hidden';
       canvas.style.visibility = hide ? 'hidden' : 'visible';
@@ -130,7 +138,7 @@ export function installMemo() {
 
   return {
     toggle() { setOn(!on); },
-    clear() { strokes = []; redraw(); },
+    clear() { strokes = []; redraw(); fit(); },
     get on() { return on; },
   };
 }
