@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gateway Garden 見た目の試し描き</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&family=DotGothic16&family=Shippori+Mincho:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #ece8dc; color: #333; font-family: system-ui, sans-serif; }
+  header { padding: 12px 16px; }
+  header h1 { margin: 0 0 4px; font-size: 20px; }
+  header p { margin: 0; font-size: 13px; color: #666; max-width: 900px; }
+  .style { margin: 16px; padding: 16px; border-radius: 14px; }
+  .style h2 { margin: 0 0 4px; }
+  .style .why { margin: 0 0 12px; font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .card { width: 170px; height: 236px; position: relative; box-sizing: border-box; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .card .top { display: flex; justify-content: space-between; align-items: center; }
+  .card .name { font-weight: 700; font-size: 14px; }
+  .card .stars { letter-spacing: 1px; }
+  .card .art { height: 78px; display: grid; place-items: center; }
+  .card .meta { font-size: 11px; opacity: .75; }
+  .card .fx { font-size: 11px; line-height: 1.45; }
+  .card .cost { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 3px; }
+  .card .role { position: absolute; right: 8px; bottom: 6px; font-size: 11px; }
+  .garden { display: grid; grid-template-columns: repeat(3, 58px); gap: 5px; }
+  .cell { width: 58px; height: 58px; display: grid; place-items: center; box-sizing: border-box; }
+  .mana { display: flex; gap: 10px; align-items: center; }
+  .bundle { display: flex; gap: 4px; padding: 6px 8px; }
+  svg.px { image-rendering: pixelated; shape-rendering: crispEdges; }
+  .label { font-size: 12px; opacity: .7; margin-bottom: 4px; }
+
+  /* A 絵本の庭 */
+  .A { background: linear-gradient(160deg, #fbf6ea, #eef5e6 60%, #f6eef6); font-family: "M PLUS Rounded 1c", sans-serif; color: #4a4639; }
+  .A .card { background: #fffdf8; border-radius: 16px; box-shadow: 0 3px 10px rgba(120,100,60,.15); border: 3px solid var(--c); }
+  .A .art { background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--c) 30%, #fff), #fff 70%); border-radius: 12px; }
+  .A .cell { background: #f7f1e0; border-radius: 14px; border: 2px dashed #d9cfb4; }
+  .A .bundle { background: #fffdf8; border-radius: 20px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+
+  /* B ドット絵 */
+  .B { background: #2b2b3a; font-family: "DotGothic16", monospace; color: #f2efe4; }
+  .B .card { background: #3c3c52; border: 4px solid var(--c); box-shadow: 4px 4px 0 #151520; border-radius: 0; }
+  .B .art { background: #1f1f2c; border: 2px solid #55557a; }
+  .B .cell { background: #34344a; border: 2px solid #55557a; }
+  .B .bundle { background: #3c3c52; border: 2px solid #8888aa; }
+  .B .why { color: #c8c4b8; }
+
+  /* C 星の書 */
+  .C { background: radial-gradient(circle at 30% 20%, #2f3b5c, #151a2b 70%); font-family: "Shippori Mincho", serif; color: #f3ead2; }
+  .C .card { background: linear-gradient(170deg, #273152, #1b2238); border: 2px solid #c9a45a; border-radius: 10px; box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--c) 45%, transparent), 0 4px 14px rgba(0,0,0,.4); }
+  .C .art { background: radial-gradient(circle, color-mix(in srgb, var(--c) 40%, transparent), transparent 70%); }
+  .C .cell { background: rgba(255,255,255,.04); border: 1px solid #c9a45a88; border-radius: 6px; }
+  .C .bundle { background: rgba(255,255,255,.06); border: 1px solid #c9a45a88; border-radius: 8px; }
+  .C .why { color: #d8cfb5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gateway Garden 見た目の試し描き（3案）</h1>
+  <p>同じカード3枚・庭・魔素・束を、3つの雰囲気で描いた。住人の絵は試しに4匹だけ（灯りうさぎ・火の粉トカゲ・しずくクラゲ・芽吹きリス）。顔は描かず、形と持ち物で見分ける。魔素は色だけでなく形でも見分けられるようにした（白＝星・赤＝炎・青＝しずく・緑＝葉・黄＝菱形）。文は言葉の表の案で書いている。</p>
+</header>
+<div id="root"></div>
+<script>
+const COLORS = { white: '#efe9d6', red: '#e3604f', blue: '#4f8fe0', green: '#4ea860', yellow: '#e8bf35' };
+const DARK = { white: '#b9ae8c', red: '#a8392b', blue: '#2c5ea8', green: '#2c7a3c', yellow: '#a8821c' };
+
+// 魔素の形（色が見分けにくい人のため）
+function mana(color, size = 22) {
+  const f = COLORS[color], s = DARK[color];
+  const shape = {
+    white: '<path d="M12 2 L14.6 8.8 L22 9.2 L16.2 13.8 L18.2 21 L12 17 L5.8 21 L7.8 13.8 L2 9.2 L9.4 8.8 Z"/>',
+    red: '<path d="M12 2 C15 7 20 10 18 16 C16.5 20.5 7.5 20.5 6 16 C5 12.5 8 11 9 8 C10 10 11 11 12 11 C12 8 11 5 12 2 Z"/>',
+    blue: '<path d="M12 2 C16 8 19 11.5 19 15 A7 7 0 0 1 5 15 C5 11.5 8 8 12 2 Z"/>',
+    green: '<path d="M4 20 C4 10 10 4 20 4 C20 14 14 20 4 20 Z M4 20 L13 11"/>',
+    yellow: '<path d="M12 2 L21 12 L12 22 L3 12 Z"/>',
+  }[color];
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24"><g fill="${f}" stroke="${s}" stroke-width="1.6" stroke-linejoin="round">${shape}</g></svg>`;
+}
+
+// 12×12 のドット絵。文字ごとの色は pal で決める（. は透明）
+const ICONS = {
+  rabbit: { pal: { W: '#f6f1e1', S: '#cfc4a3', Y: '#f2c14e', O: '#e08a2c' }, rows: [
+    '..W....W....', '.WSW..WSW...', '.WSW..WSW...', '.WSW..WSW...', '..WWWWWW....', '.WWWWWWWW...',
+    '.WWWWWWWWW..', '.WWWWWWWWW.O', '..WWWWWWW.OY', '..WWWWWWW.YY', '..SW..WS..O.', '............'] },
+  lizard: { pal: { R: '#e3604f', D: '#a8392b', Y: '#ffd15c', O: '#ff9a3c' }, rows: [
+    '.......Y....', '......YO....', '.......O....', '...RRRR.....', '..RRDRRR....', '.....RRR....',
+    '....RRRRR...', '...R.RRR.R..', '....RRRRR...', '.....RR.R...', '.....R..RRR.', '..........RR'] },
+  jelly: { pal: { B: '#4f8fe0', L: '#a9d2ff', D: '#2c5ea8' }, rows: [
+    '...BBBBBB...', '..BBLLBBBB..', '.BBLLBBBBBB.', '.BBBBBBBBBB.', '.DBDBDBDBDB.', '..L..L..L...',
+    '..L..L..L...', '...L..L..L..', '..L..L..L...', '...L..L..L..', '..L..L..L...', '............'] },
+  squirrel: { pal: { N: '#b97a45', D: '#8a5530', G: '#4ea860', L: '#8fd39a' }, rows: [
+    '.......NNN..', '......NNNNN.', '..D..NNDNNN.', '.NNN.NNN.NN.', '.NNNNNNN..N.', '..NNNNNN....',
+    '..NNNNNN....', '...NNNNN....', '...D.D.G....', '.......GL...', '......GGLG..', '.....GGGGGG.'] },
+};
+function icon(name, px = 6) {
+  const { pal, rows } = ICONS[name];
+  let r = '';
+  rows.forEach((row, y) => [...row].forEach((ch, x) => { if (pal[ch]) r += `<rect x="${x}" y="${y}" width="1" height="1" fill="${pal[ch]}"/>`; }));
+  return `<svg class="px" width="${12 * px}" height="${12 * px}" viewBox="0 0 12 12">${r}</svg>`;
+}
+
+const CARDS = [
+  { name: '灯りうさぎ', icon: 'rabbit', color: 'white', stars: 2, meta: '白・生成・早熟', fx: ['↻ 毎ラウンド：白を2つ'], cost: ['white'], role: '生成' },
+  { name: '火の粉トカゲ', icon: 'lizard', color: 'red', stars: 1, meta: '赤・生成・平ら', fx: ['↻ 毎ラウンド：赤を1つ'], cost: ['red', 'red'], role: '生成' },
+  { name: 'しずくクラゲ', icon: 'jelly', color: 'blue', stars: 3, meta: '青・生成・平ら', fx: ['↻ 毎ラウンド：好きな色を2つ'], cost: ['blue', 'any'], role: '生成' },
+];
+const anyMana = (size = 18) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24"><defs><linearGradient id="rb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3604f"/><stop offset=".33" stop-color="#e8bf35"/><stop offset=".66" stop-color="#4ea860"/><stop offset="1" stop-color="#4f8fe0"/></linearGradient></defs><circle cx="12" cy="12" r="9" fill="url(#rb)" stroke="#fff" stroke-width="2"/></svg>`;
+
+function card(c, starOn, starOff) {
+  const stars = starOn.repeat(c.stars) + starOff.repeat(3 - c.stars);
+  return `<div class="card" style="--c:${COLORS[c.color]}">
+    <div class="top"><span class="name">${c.name}</span><span class="stars">${stars}</span></div>
+    <div class="art">${icon(c.icon, 6)}</div>
+    <div class="meta">${c.meta}</div>
+    <div class="fx">${c.fx.join('<br>')}</div>
+    <div class="cost">${c.cost.map((m) => (m === 'any' ? anyMana() : mana(m, 18))).join('')}</div>
+    <div class="role">${c.role}</div>
+  </div>`;
+}
+
+function garden() {
+  const g = ['rabbit', null, 'lizard', null, 'squirrel', null, 'jelly', null, null];
+  return `<div class="garden">${g.map((x) => `<div class="cell">${x ? icon(x, 4) : ''}</div>`).join('')}</div>`;
+}
+
+const STYLES = [
+  { id: 'A', title: 'A 絵本の庭', why: 'やわらかい色と丸い形。紙の絵本のような明るい画面。いちばん「可愛い」に寄せた案。', on: '★', off: '☆' },
+  { id: 'B', title: 'B ドット絵の庭', why: 'くっきりした色と四角い枠。過去作（auto-battler など）のドット絵となじむ。夜の画面。', on: '■', off: '□' },
+  { id: 'C', title: 'C 星の書', why: '深い夜空と金の縁。魔素や「世界をつなぐ」の神秘さを出す案。可愛さは控えめ。', on: '✦', off: '✧' },
+];
+
+document.getElementById('root').innerHTML = STYLES.map((s) => `
+  <section class="style ${s.id}">
+    <h2>${s.title}</h2>
+    <p class="why">${s.why}</p>
+    <div class="row">
+      ${CARDS.map((c) => card(c, s.on, s.off)).join('')}
+      <div><div class="label">庭（一部）</div>${garden()}</div>
+      <div>
+        <div class="label">魔素</div><div class="mana">${['white', 'red', 'blue', 'green', 'yellow'].map((m) => mana(m)).join('')}${anyMana(22)}</div>
+        <div class="label" style="margin-top:12px">束</div>
+        <div class="row" style="gap:8px">${[['red', 'blue', 'green'], ['white', 'white', 'yellow']].map((b) => `<div class="bundle">${b.map((m) => mana(m)).join('')}</div>`).join('')}</div>
+      </div>
+    </div>
+  </section>`).join('');
+</script>
+</body>
+</html>

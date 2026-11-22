@@ -9,6 +9,9 @@ import { GameHost, HostRoom, GuestClient } from '../net/session.js';
 import { openTrystero } from '../net/trystero.js';
 import { APP_VERSION } from '../version.js';
 import { filterHtml, listHtml, allState, toggleFilter, leftCounts } from './cardlist.js';
+import { installMemo } from './memo.js';
+
+const memo = installMemo(); // 落書き（#6）。自分の画面だけに残る
 
 let poolOpen = false; // ゲーム中の「札の一覧」（#8）
 let poolState = null;
@@ -124,6 +127,7 @@ function rulesHtml() {
 }
 
 function attach(sess) {
+  memo.clear(); // 新しいゲームは白い紙から
   session = sess;
   screen = 'game';
   ui = freshUi();
@@ -480,6 +484,7 @@ function render() {
     <span>ラウンド ${st.round} / ${st.rounds}・${phaseName()}</span>
     ${orderHtml()}
     <span class="spacer"></span>
+    <button data-act="memo">メモ（落書き）</button>
     <button data-act="pool">札の一覧</button>
     ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
   </header>
@@ -561,6 +566,7 @@ app.addEventListener('click', async (ev) => {
   const pl = st.players[ME];
   const n = (k) => Number(d[k]);
   switch (d.act) {
+    case 'memo': memo.toggle(); return;
     case 'pool': poolOpen = true; break;
     case 'pool-close': poolOpen = false; break;
     case 'copy':
