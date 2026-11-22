@@ -5,7 +5,8 @@
 //   例：'https://<アプリ名>.metered.live/api/v1/turn/credentials?apiKey=<ブラウザ用の鍵>'
 //   この URL を開くと、ICE サーバーの並び（[{ urls, username, credential }, ...]）が返る。
 // 空のままなら TURN は使わない（今までどおり STUN だけで直接つなぐ）。
-export const TURN_URL = '';
+// Metered の無料アカウント（月 500MB。2026-11-22 に人が作った）。ブラウザに置いてよい鍵なので公開してよい
+export const TURN_URL = 'https://stm-connect782.metered.live/api/v1/turn/credentials?apiKey=873f53e606562c97a9540736965f11277562';
 
 // TURN サーバーの並びを取る。取れなければ null（つなぐのは止めない）
 export async function turnServers(url = TURN_URL, { timeout = 5000 } = {}) {

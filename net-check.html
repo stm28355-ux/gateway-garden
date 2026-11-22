@@ -38,6 +38,7 @@ const $ = (id) => document.getElementById(id);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ゲームと同じつなぎ方（?net=mqtt などもゲームと同じく効く）
 const STRATEGY = new URLSearchParams(location.search).get('net') ?? 'nostr';
+const RELAY_ONLY = new URLSearchParams(location.search).get('relay') === '1';
 const loadTrystero = () => import(`${TRYSTERO}/${STRATEGY}/+esm`);
 const results = {};
 function showSum() {
@@ -175,7 +176,10 @@ async function peerTest() {
   watched.length = 0;
   const mod = await loadTrystero();
   const turnConfig = await turnServers();
-  const room = mod.joinRoom(roomConfig(STRATEGY, { password: code, rtcPolyfill: WatchedPC, ...(turnConfig ? { turnConfig } : {}) }), `netcheck-${code}`);
+  // ?relay=1：直接の線を使わず、TURN の中継だけでつなぐ（同じ回線の中でも TURN を試せる）
+  const net = RELAY_ONLY && turnConfig ? { rtcConfig: { iceServers: turnConfig, iceTransportPolicy: 'relay' } } : (turnConfig ? { turnConfig } : {});
+  if (RELAY_ONLY && !turnConfig) { $('r4').innerHTML = '<span class="ng">TURN が使えないので、中継だけの試しはできません</span>'; $('pgo').disabled = false; return; }
+  const room = mod.joinRoom(roomConfig(STRATEGY, { password: code, rtcPolyfill: WatchedPC, ...net }), `netcheck-${code}`);
   const ping = room.makeAction('ping');
   const pong = room.makeAction('pong');
   ping.onMessage = (t, ctx) => pong.send(t, { target: ctx.peerId });
@@ -203,7 +207,7 @@ async function peerTest() {
     for (let i = 0; i < 5 && !pair; i++) { pair = await pairOf(pc); if (!pair) await sleep(500); }
     const via = !pair ? '直接' : (pair.local === 'relay' || pair.remote === 'relay') ? 'TURN の中継を通して' : (pair.local === 'host' && pair.remote === 'host') ? '同じ回線の中で直接' : 'NAT を越えて直接';
     $('r4').innerHTML = `<span class="ok">つながりました</span>（${sec()}秒・${via}・往復 ${rtt ?? '?'}ms）`;
-    results[4] = `4 相手と：つながった ${sec()}秒（${pair ? `${pair.local}↔${pair.remote} ${pair.proto}` : '種類不明'}・往復${rtt ?? '?'}ms）`;
+    results[4] = `4 相手と${RELAY_ONLY ? '（中継だけ）' : ''}：つながった ${sec()}秒（${pair ? `${pair.local}↔${pair.remote} ${pair.proto}` : '種類不明'}・往復${rtt ?? '?'}ms）`;
   } else if (!sig) {
     $('r4').innerHTML = '<span class="ng">相手の合図が届きませんでした</span>。合言葉か押す時間がずれているか、2人が同じ中継に届いていません。合言葉を確かめてもう一度。それでもだめなら、2人ともアドレスの後ろに ?net=mqtt を付けて試してください。';
     results[4] = '4 相手と：相手の合図が届かない（合言葉・時間のずれか、中継の問題）';
