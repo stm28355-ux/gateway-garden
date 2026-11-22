@@ -35,8 +35,8 @@
 
 | 項目 | 選べるもの |
 | --- | --- |
-| `when` | `place` 置いたとき・`activate` 毎ラウンドの発動・`grow` 段階が上がったとき・`pick` 拾うとき（導きの札の段階2から）・`end` 終わりの得点 |
-| `do` | `gain`（`color`,`amount`）素材を得る・`convert`（`to`,`amount`）色を変える・`stageUp`（`amount`）段階を上げる・`discount`（`amount`）育てる値段を下げる・`score`（`amount`）点・`limit`（`amount`）上限を広げる・`trigger` 発動させる・`bend`（`kind`）拾い方を曲げる |
+| `when` | `place` 置いたとき・`activate` 毎ラウンドの発動・`grow` その段階になったとき（段階2・3だけ）・`pick` 拾うとき（導きの札の段階2から）・`end` 終わりの得点・`always` 置いてある間ずっと・`use` 反応フェーズの育てる所で好きなときに1ラウンド1回 |
+| `do` | `gain`（`color`,`amount`）素材を得る・`convert`（`to`,`amount`）色を変える・`stageUp`（`amount`）範囲から1枚選んで段階を上げる・`discount`（`amount`）育てる値段を下げる（`always` だけ）・`score`（`amount`）点・`limit`（`amount`）上限を広げる（`always` だけ）・`trigger` 範囲の当てはまる札を全部発動させる・`move` 範囲の札1枚を庭の別のマスへ動かす・`bend`（`kind`）拾い方を曲げる |
 | `area` | `self` 自分・`adjacent` 上下左右・`row` 同じ行・`column` 同じ列・`cross` 行と列・`garden` 庭ぜんぶ |
 | `filter` | `element`・`role`・`minStage`（1〜3）・`origin`（`same`/`other` 出身）・`empty`（空きマス）・`position`（`center`/`corner`/`edge`） |
 | `per` | `{ "area", "filter" }`：当てはまる札1枚につき `amount` 倍 |
@@ -45,6 +45,17 @@
 | `kind`（bend） | `add` 足す・`swap` 入れ替える・`adjacent` 隣から取る・`redraw` 続けて引く・`recolor` 色を変える |
 
 `color` は5色のほか `self`（この札の色）と `any`（好きな色）が使える。
+
+### 効果の読み方（フェーズ2で決定）
+
+1. 効くのは今の段階の効果だけ。段階が上がると、前の段階の効果は入れ替わる。
+2. `grow` は、その段階に上がった瞬間に1回だけ動く。
+3. 値段を下げる・上限を広げるは `always`（置いてある間ずっと）。
+4. 育てる値段は下げても最低1個。
+5. `stageUp` は範囲から1枚選ぶ。`trigger` は範囲の当てはまる札を全部動かす。
+6. 連鎖の中で同じ札は1回だけ発動する。`stageUp` で上がった札の `grow` も動く。
+7. 毎ラウンドの発動は左上から右下へ順に。
+8. `use` は反応フェーズの育てる所で、育てる操作と好きな順に混ぜて使える。`move` で動かしても `place` は動かない。
 
 例：段階3で、隣の赤い札1枚につき赤を1つ得る。
 

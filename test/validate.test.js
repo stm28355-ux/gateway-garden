@@ -47,6 +47,23 @@ test('拾い方を曲げるのは導きの札の段階2から（D12）', () => {
   assert.equal(validateExpansion('demo', meta, [notGuide]).length, 1);
 });
 
+test('値段を下げる・上限は「常に」だけ、段階1の「その段階になったとき」は誤り', () => {
+  const bad = card({ stages: [
+    { effects: [{ when: 'grow', do: 'gain', color: 'red', amount: 1 }] },
+    { effects: [{ when: 'activate', do: 'discount', amount: 1, area: 'adjacent' }] },
+    { points: 1, effects: [{ when: 'always', do: 'limit', amount: 2 }] },
+  ] });
+  assert.equal(validateExpansion('demo', meta, [bad]).length, 2);
+});
+
+test('好きなときに使う効果（再配置）が書ける', () => {
+  const mover = card({ stages: [
+    { effects: [{ when: 'use', do: 'move', area: 'garden' }] },
+    { effects: [] }, { points: 1, effects: [] },
+  ] });
+  assert.deepEqual(validateExpansion('demo', meta, [mover]), []);
+});
+
 test('知らない部品・項目・範囲を見つける', () => {
   const bad = card({ stages: [
     { effects: [{ when: 'activate', do: 'fly', amount: 1 }] },

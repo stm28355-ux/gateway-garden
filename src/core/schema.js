@@ -7,8 +7,12 @@ export const ROLES = ['generate', 'guide', 'boost', 'convert', 'score', 'chain']
 // 育てる値段（段階1→2、段階2→3）。乗せるのは札と同じ色の素材。
 export const GROWTH = { early: [1, 2], flat: [2, 2], late: [2, 4] }; // 早熟・平ら・晩成
 
-// いつ
-export const WHEN = ['place', 'activate', 'grow', 'pick', 'end']; // 置いたとき・毎ラウンドの発動・段階が上がったとき・拾うとき・終わりの得点
+// いつ（フェーズ2で always と use を足した）
+// place 置いたとき・activate 毎ラウンドの発動・grow その段階になったとき・pick 拾うとき・end 終わりの得点
+// always 置いてある間ずっと・use 反応フェーズの育てる所で、好きなときに1ラウンド1回使える
+export const WHEN = ['place', 'activate', 'grow', 'pick', 'end', 'always', 'use'];
+// 常に効く部品（値段を下げる・上限を広げる）は always だけで書く
+const ALWAYS_ONLY = ['discount', 'limit'];
 
 // 範囲（どこ）。向きは入れない（D11）。
 export const AREAS = ['self', 'adjacent', 'row', 'column', 'cross', 'garden']; // 自分・上下左右・同じ行・同じ列・行と列・庭ぜんぶ
@@ -21,8 +25,9 @@ export const BENDS = ['add', 'swap', 'adjacent', 'redraw', 'recolor']; // 足す
 export const ACTIONS = {
   gain: ['color', 'amount'],        // 素材を得る。color は 5色・'self'（札の色）・'any'（好きな色）
   convert: ['to', 'amount'],        // 手持ちの素材を to の色に、amount 個まで変える
-  stageUp: ['amount'],              // 範囲の札の段階を上げる（素材を払わない）
-  discount: ['amount'],             // 範囲の札の育てる値段を下げる（このラウンド）
+  stageUp: ['amount'],              // 範囲から1枚選んで段階を上げる（素材を払わない）
+  discount: ['amount'],             // 範囲の札の育てる値段を下げる（常に。最低1個）
+  move: [],                         // 範囲の札1枚を、自分の庭の別のマスへ動かす（空きなら移動、札があれば入れ替え。段階はそのまま）
   score: ['amount'],                // 点を得る
   limit: ['amount'],                // 持てる素材の上限を広げる
   trigger: [],                      // 範囲の札を発動させる（連鎖）
@@ -69,8 +74,10 @@ export function validateEffect(e, where, ctx, err) {
     if (ctx.role !== 'guide') err(`${where}: 拾うときの効果は役目「導き」の札だけ（D12）`);
     if (ctx.stage < 2) err(`${where}: 拾い方を曲げるのは段階2から（D12）`);
   }
+  if (ALWAYS_ONLY.includes(e.do) && e.when !== 'always') err(`${where}: ${e.do} は when: "always" で書く`);
+  if (e.when === 'grow' && ctx.stage === 1) err(`${where}: 段階1の「その段階になったとき」は起きない`);
   if (e.area !== undefined && !AREAS.includes(e.area)) err(`${where}: area が正しくない`);
-  if (['stageUp', 'discount', 'trigger'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);
+  if (['stageUp', 'discount', 'trigger', 'move'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);
   checkFilter(e.filter, `${where}.filter`, err);
   checkCount(e.per, `${where}.per`, err, false);
   checkCount(e.if, `${where}.if`, err, true);
