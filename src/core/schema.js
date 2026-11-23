@@ -36,7 +36,7 @@ export const ACTIONS = {
   trigger: [],                      // 範囲の札を発動させる（連鎖）
   bend: ['kind'],                   // 拾い方を曲げる（when: 'pick' だけ）
   remove: ['amount'],               // 溶解：範囲のカード1枚まで（選ぶ）を庭から取り除く。amount（なくてもよい）があれば、そのカードの★ごとにその色を amount 個得る
-  copy: [],                         // 複製：範囲（なければこのカード）の1枚の写しを、手元のカードに加える
+  copy: [],                         // 複製：範囲（なければこのカード）の1枚の写しを、手元のカードに加える（1人1ラウンドに1枚まで）
 };
 const OPTIONAL_AMOUNT = ['remove'];
 

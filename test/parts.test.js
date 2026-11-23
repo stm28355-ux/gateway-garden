@@ -123,3 +123,10 @@ test('CPU：新しい部品のある拡張を混ぜても、2〜4人で最後ま
     }
   }
 });
+
+test('複製は1人1ラウンドに1枚まで（育てる魔素0で、複製→置く→育てるがくり返さない）', () => {
+  const st = reactState([[0, 'parts-test-2'], [1, 'parts-test-2']]);
+  applyMut(cat, st, { type: 'use', player: 0, cell: 0 });
+  applyMut(cat, st, { type: 'use', player: 0, cell: 1 });
+  assert.equal(st.players[0].pending.filter((x) => x.id === 'parts-test-2').length, 1);
+});

@@ -312,6 +312,7 @@ function runTask(cat, st, pl, task) {
   }
   const src = cellOfUid(pl, task.uid);
   if (src < 0) return;
+  if (task.t === 'copy' && pl.copiedRound === st.round) return; // 複製は1ラウンドに1枚まで（育てる魔素0で、複製→置く→育てるがくり返さないように）
   if (task.t === 'remove' || task.t === 'copy') {
     const options = cellsIn(cat, pl, src, task.area, task.filter).filter((c) => pl.garden[c] && matches(cat, pl, src, c, task.filter));
     if (!options.length) return;
@@ -341,8 +342,9 @@ function removeCard(cat, st, pl, cell, amount) {
   if (amount) addGain(pl, defOf(cat, inst).element, amount * inst.stage);
 }
 
-// 複製：同じカード（山にあるのと同じ id）の新しい1枚を、手元のカードに加える
+// 複製：同じカード（山にあるのと同じ id）の新しい1枚を、手元のカードに加える。1ラウンドに1枚まで
 function copyCard(st, pl, cell) {
+  pl.copiedRound = st.round;
   pl.pending.push({ uid: st.uidNext++, id: pl.garden[cell].id });
 }
 

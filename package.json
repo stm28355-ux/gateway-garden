@@ -1,6 +1,6 @@
 {
   "name": "gateway-garden",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "private": true,
   "type": "module",
   "description": "3×3 の庭に別の世界の住人を迎えて育てるボードゲーム",
