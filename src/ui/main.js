@@ -36,7 +36,8 @@ let ui = {};
 let hover = null;
 let error = '';
 
-const freshUi = () => ({ bundle: null, markets: [], anyPick: {}, swapCell: null, give: null, swap: null, pending: null, cell: null, convFrom: null, moveFrom: null, discard: {} });
+const freshUi = () => ({ bundle: null, markets: [], anyPick: {}, swapCell: null, give: null, swap: null, pending: null, pendingOff: false, cell: null, convFrom: null, moveFrom: null, discard: {} });
+let lastCellTap = { cell: null, at: 0 }; // 同じマスを素早く2回押したら育てる
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const nameOf = (p) => st.players[p].name;
 const defById = (id) => cat.cards[id];
@@ -244,7 +245,12 @@ function renderLobby() {
 
 function act(a) {
   error = session.act(a) ?? '';
-  if (!error && a.player === ME && a.type !== 'choose') ui = freshUi();
+  if (!error && a.player === ME && a.type !== 'choose') {
+    // 育てた・手入れしたカードは選んだままにする（ui.md の 1：続けて育てるのが1手）
+    const keep = a.type === 'grow' || a.type === 'use' ? ui.cell : null;
+    ui = freshUi();
+    ui.cell = keep;
+  }
   if (a.type === 'choose') { ui.convFrom = null; ui.moveFrom = null; ui.discard = {}; }
   render();
 }
@@ -398,14 +404,26 @@ function actionPanel() {
   if (pl.choice) {
     const src = pl.garden.find((x) => x && x.uid === pl.choice.source);
     const from = src ? `<p class="source-note">「${esc(defById(src.id).name)}」（マス${pl.garden.indexOf(src) + 1}・光っているカード）の効果</p>` : '';
-    return `${from}${choicePanel(pl)}${pl.history?.length ? '<p><button data-act="undo">1つ戻す</button></p>' : ''}`;
+    return `<div class="panel-body">${from}${choicePanel(pl)}</div>${pl.history?.length ? '<div class="panel-foot"><button data-act="undo">1つ戻す</button></div>' : ''}`;
   }
-  if (myDraftTurn()) return '<p>始まりのカードを、場から1枚招いてください（無料）。</p>';
+  if (myDraftTurn()) return '<p>始まりのカードを、場から1枚招いてください（無料）。上の「場のカード」を押します。</p>';
   if (st.phase === 'draft') return `<p class="muted">${esc(nameOf(st.draftOrder[st.turn]))} が始まりのカードを選んでいます…</p>`;
   const waiting = pl.pending.length
     ? `<p class="muted">手元のカード（手入れフェーズで置く）：${pl.pending.map((c) => `<span data-card="${c.id}" data-stage="1">「${esc(defById(c.id).name)}」</span>`).join('')}</p>` : '';
   if (st.phase === 'pick') {
     if (!myPickTurn()) return `<p class="muted">${esc(nameOf(pickOrder(st)[st.turn]))} が摘んでいます…（場を見て次の手を考えられます）</p>${waiting}`;
+    return `<p><b>あなたの番</b>：上の「摘む」の欄で、束とカードを選んで摘みます。</p>${waiting}`;
+  }
+  return reactPanel(pl);
+}
+
+// 「摘む」の欄（ui.md の 6：摘むボタンを場のカードのすぐ横に）。自分の番のときだけ選ぶ所を出す
+function pickBoxHtml() {
+  const pl = st.players[ME];
+  if (st.phase === 'draft') return myDraftTurn() ? '<p>始まりのカードを、場から1枚招いてください（無料）。</p>' : `<p class="muted">${esc(nameOf(st.draftOrder[st.turn]))} が始まりのカードを選んでいます…</p>`;
+  if (st.phase !== 'pick') return `<p class="muted">手入れフェーズです。次のラウンドは ${esc(nameOf((st.firstPlayer + 1) % st.players.length))} から摘みます。</p>`;
+  {
+    if (!myPickTurn()) return `<p class="muted">${esc(nameOf(pickOrder(st)[st.turn]))} が摘んでいます…</p>`;
     const pv = pickPreview();
     const swaps = bendCells('swap');
     const swapUi = swaps.length && ui.bundle !== null
@@ -416,7 +434,7 @@ function actionPanel() {
       const chips = anyN ? `　好きな色の払い：${(ui.anyPick[k] ?? []).map((c, j) => `<button class="chip" data-act="anychip" data-k="${k}" data-j="${j}" title="押すと色が変わる">${manaDot(c)}</button>`).join('')}` : '';
       return `<p>${k + 1}枚目「${esc(defById(card.id).name)}」：${fixed || '―'}${anyN ? `${fixed ? '・' : ''}好きな色${anyN}` : ''}${chips}</p>`;
     }).join('');
-    return `<p><b>あなたの番</b>：束を1つ選んで摘む。招きたいカードがあれば、場のカードを2枚まで選ぶ（2枚目は好きな色1が足される）。</p>${waiting}
+    return `<p><b>あなたの番</b>：束を1つ選ぶ。招くなら場のカードを2枚まで（2枚目は好きな色1が足される）。</p>
       ${adds.length ? `<p class="muted">足す（${adds.map((c) => esc(defById(pl.garden[c].id).name)).join('・')}）は自動で使います。</p>` : ''}
       ${swapUi}
       ${buyLines}
@@ -425,6 +443,10 @@ function actionPanel() {
       <button class="primary" data-act="pick" ${pv?.action && !pv.error ? '' : 'disabled'}>摘む${ui.markets.length ? `（カード${ui.markets.length}枚も招く）` : ''}</button>
       ${ui.markets.length ? '<button data-act="unbuy">カードは招かない</button>' : ''}`;
   }
+}
+
+// 手入れフェーズの「あなたのすること」。終える・戻すボタンは欄の下に固定（ui.md の 5：押す場所が動かない）
+function reactPanel(pl) {
   if (st.phase === 'react') {
     if (pl.status === 'done') return '<p class="muted">このラウンドは終えました。ほかの人を待っています…</p>';
     const pend = pl.pending.map((c, i) => cardHtml(c, { cls: `can ${ui.pending === i ? 'sel' : ''}`, attrs: `data-act="pending" data-i="${i}"` })).join('');
@@ -439,11 +461,11 @@ function actionPanel() {
         ${hasUse ? `<button data-act="use" ${pl.used.includes(x.uid) ? 'disabled' : ''}>手入れ</button>` : ''}</p>`;
     }
     const over = pl.pending.length > HAND_LIMIT;
-    return `${pend ? `<p><b>手元のカード</b>：カードを選んで、庭のマスを押すと置く${pl.garden.every(Boolean) ? '（庭が埋まっているので置き換え）' : ''}。置かずに${HAND_LIMIT}枚まで持っておける。</p><div class="row">${pend}</div>` : ''}
-      <p>庭のカードを押すと、育てる・手入れができます。</p>${sel}
-      <button class="primary" data-act="done" ${over ? 'disabled' : ''}>このラウンドを終える（開花）</button>
-      <button data-act="undo" ${pl.history?.length ? '' : 'disabled'}>1つ戻す</button>
-      ${over ? `<p class="error">手元のカードが${HAND_LIMIT}枚を超えています。置いてから終えてください。</p>` : ''}`;
+    return `<div class="panel-body">${pend ? `<p><b>手元のカード</b>：カードを選んで、庭の空いたマスを押すと置く${pl.garden.every(Boolean) ? '（庭が埋まっているので置き換え）' : ''}。置かずに${HAND_LIMIT}枚まで持っておける。</p><div class="row">${pend}</div>` : ''}
+      <p>庭のカードを押すと、育てる・手入れができます（同じカードを素早く2回押すと、すぐ育てる）。</p>${sel}
+      ${over ? `<p class="error">手元のカードが${HAND_LIMIT}枚を超えています。置いてから終えてください。</p>` : ''}</div>
+      <div class="panel-foot"><button class="primary" data-act="done" ${over ? 'disabled' : ''}>このラウンドを終える（開花）</button>
+      <button data-act="undo" ${pl.history?.length ? '' : 'disabled'}>1つ戻す</button></div>`;
   }
   return '';
 }
@@ -555,6 +577,8 @@ function render() {
   ME = session.me;
   if (!st) return renderLobby();
   const pl = st.players[ME];
+  // 手元のカードが1枚だけなら、はじめから選んでおく（ui.md の 2：置くのが1手）。庭が埋まっているとき（置き換え）は選ばない
+  if (st.phase === 'react' && pl.status === 'acting' && !pl.choice && pl.pending.length === 1 && ui.pending === null && !ui.pendingOff && !pl.garden.every(Boolean)) ui.pending = 0;
   const me = scoreOf(cat, st, ME);
   const lost = session.problem ? `<p class="error banner">${esc(session.problem)}</p>` : '';
   const shownError = error || session.error || '';
@@ -570,16 +594,19 @@ function render() {
     <div class="row-top">
       <section class="sec a-bundles"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div></section>
       <section class="sec a-market"><h2 class="sec-title">場のカード（招く）</h2><div class="market">${marketHtml()}</div></section>
-      <section class="sec a-goals"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
+      <section class="sec a-pick"><h2 class="sec-title">摘む</h2><div class="panel">${pickBoxHtml()}</div></section>
     </div>
     <div class="row-bottom">
+      <section class="sec a-goals"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
       <section class="sec a-garden mine">
         <h2 class="sec-title">${esc(pl.name)} の庭</h2>
         <div class="me-head"><span class="me-score">${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span><span class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></span></div>
         <div class="board-slab">${gardenHtml(ME)}</div>
       </section>
-      <section class="sec a-action"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
-      <section class="sec a-detail"><h2 class="sec-title">カードの説明</h2><div class="detail-box">${detailHtml()}</div></section>
+      <div class="col-side">
+        <section class="sec a-action"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
+        <section class="sec a-detail"><h2 class="sec-title">カードの説明</h2><div class="detail-box">${detailHtml()}</div></section>
+      </div>
     </div>
   </main>
   <nav class="sidetabs">
@@ -720,7 +747,7 @@ app.addEventListener('click', async (ev) => {
       if (pv?.action) return act(pv.action);
       break;
     }
-    case 'pending': ui.pending = ui.pending === n('i') ? null : n('i'); ui.cell = null; break;
+    case 'pending': ui.pending = ui.pending === n('i') ? null : n('i'); ui.pendingOff = ui.pending === null; ui.cell = null; break;
     case 'cell': {
       const i = n('cell');
       const ch = pl.choice;
@@ -730,8 +757,19 @@ app.addEventListener('click', async (ev) => {
         return act({ type: 'choose', player: ME, value: { from: ui.moveFrom, to: i } });
       }
       if (st.phase !== 'react') break;
-      if (ui.pending !== null) return act({ type: 'place', player: ME, pending: ui.pending, cell: i });
+      const full = pl.garden.every(Boolean);
+      if (ui.pending !== null && (!pl.garden[i] || full)) return act({ type: 'place', player: ME, pending: ui.pending, cell: i });
+      // 同じカードを素早く2回押すと育てる（ui.md の 1：育てるのが1手）
+      const now = Date.now();
+      if (pl.garden[i] && ui.cell === i && lastCellTap.cell === i && now - lastCellTap.at < 400 && !pl.choice) {
+        lastCellTap = { cell: null, at: 0 };
+        const x = pl.garden[i];
+        if (x.stage < 3 && pl.mana[defById(x.id).element] >= growCost(cat, pl, i)) return act({ type: 'grow', player: ME, cell: i });
+        break;
+      }
+      lastCellTap = { cell: i, at: now };
       ui.cell = pl.garden[i] ? i : null;
+      if (pl.garden[i]) { ui.pending = null; ui.pendingOff = true; }
       break;
     }
     case 'grow': return act({ type: 'grow', player: ME, cell: ui.cell });
