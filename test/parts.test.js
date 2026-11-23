@@ -193,7 +193,7 @@ test('融合：選んだカードを溶かし、その★の数だけこのカ�
   applyMut(cat2, st2, { type: 'choose', player: 0, value: null });
   assert.ok(st2.players[0].garden[1]);
   assert.equal(st2.players[0].garden[4].stage, 1);
-  assert.deepEqual(stageLines(cat2.cards['parts-ac-3'], 0), ['手入れ：隣のカード1枚まで融合']);
+  assert.deepEqual(stageLines(cat2.cards['parts-ac-3'], 0), ['手入れ：隣のカード1枚まで溶解（その★ごとに、このカードを★1つ育てる）']);
 });
 
 test('斜め：斜めの4マス（角は1マス、辺は2マス）', () => {

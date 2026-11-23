@@ -507,7 +507,7 @@ function choicePanel(pl) {
     case 'copy':
       return '<p><b>複製するカードを選ぶ</b>：光っているマスを押す（写しが手元のカードに入る）</p>';
     case 'fuse':
-      return '<p><b>融合するカードを選ぶ</b>：光っているマスを押す（そのカードは溶け、★の数だけ融合したカードが育つ。★★★を超える分は1つ1点）</p><button data-act="remove-skip">融合しない</button>';
+      return '<p><b>溶かすカードを選ぶ</b>：光っているマスを押す（そのカードの★の数だけ、効果を出したカードが育つ。★★★を超える分は1つ1点）</p><button data-act="remove-skip">溶かさない</button>';
     case 'move':
       return `<p><b>カードを動かす</b>：${ui.moveFrom === null ? '動かすカードを押す' : '動かす先のマスを押す（カードがあれば入れ替え）'}</p><button data-act="move-skip">動かさない</button>`;
     case 'discard': {
