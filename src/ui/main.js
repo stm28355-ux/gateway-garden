@@ -366,7 +366,7 @@ function bundlesHtml() {
     const sel = ui.bundle === i;
     const swapGive = ui.swap && ui.swap.other === i ? ui.swap.otherIdx : (ui.swap && ui.bundle === i ? ui.swap.give : -1);
     const dots = b.map((c, k) => manaDot(c, `data-act="dot" data-b="${i}" data-k="${k}" ${(sel && ui.give === k) || swapGive === k ? 'data-mark="1"' : ''}`)).join('');
-    return `<div class="bundle ${sel ? 'sel' : ''} ${mine ? 'can' : ''}" data-act="bundle" data-b="${i}"><small>束${i + 1}</small>${dots}</div>`;
+    return `<div class="bundle ${sel ? 'sel' : ''} ${mine ? 'can' : ''}" data-act="bundle" data-b="${i}">${dots}</div>`;
   }).join('');
 }
 
@@ -424,7 +424,7 @@ function actionPanel() {
   if (myDraftTurn()) return '<p>始まりのカードを、場から1枚招いてください（無料）。上の「場のカード」を押します。</p>';
   if (st.phase === 'draft') return `<p class="muted">${esc(nameOf(st.draftOrder[st.turn]))} が始まりのカードを選んでいます…</p>`;
   const waiting = pl.pending.length
-    ? `<p class="muted">手元のカード（手入れフェーズで置く）：${pl.pending.map((c) => `<span data-card="${c.id}" data-stage="1">「${esc(defById(c.id).name)}」</span>`).join('')}</p>` : '';
+    ? `<p class="muted">手元のカード（手入れフェーズで置く）</p><div class="row">${pl.pending.map((c) => cardHtml(c)).join('')}</div>` : '';
   if (st.phase === 'pick') {
     if (!myPickTurn()) return `<p class="muted">${esc(nameOf(pickOrder(st)[st.turn]))} が摘んでいます…（場を見て次の手を考えられます）</p>${waiting}`;
     return pickPanel(waiting);
@@ -441,7 +441,7 @@ function swapHtml() {
   const names = swaps.map((c) => esc(defById(pl.garden[c].id).name)).join('・');
   let body;
   if (ui.bundle === null) body = '<span class="muted">束を選ぶと使える</span>';
-  else if (ui.swap) body = `束${ui.bundle + 1}の${ui.swap.give + 1}番目 ⇔ 束${ui.swap.other + 1}の${ui.swap.otherIdx + 1}番目 <button data-act="swap-clear">やめる</button>`;
+  else if (ui.swap) body = '印の2つを入れ替える <button data-act="swap-clear">やめる</button>';
   else if (ui.swapCell === null) body = `<button data-act="swap-start" data-cell="${swaps[0]}">入れ替える</button>`;
   else body = ui.give === null ? '選んだ束の、替えたい魔素を押す' : '替える相手（別の束）の魔素を押す';
   return `<div class="swap-box"><small>入れ替え（${names}）</small><div>${body}</div></div>`;

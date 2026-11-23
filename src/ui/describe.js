@@ -84,15 +84,13 @@ function wrap(e, s) {
 // 文字だけ（記録・できごと・テスト用）
 export function effectText(e, def, stage) {
   const k = KEYWORDS[e.when];
-  const word = e.when === 'grow' ? `${k.word}${stars(stage ?? 2)}` : k.word;
-  return `${word}：${wrap(e, body(e, def, false))}`;
+  return `${k.word}：${wrap(e, body(e, def, false))}`;
 }
 
 // 画面用（キーワードにマウスを乗せると説明が出る）
 export function effectHtml(e, def, stage) {
   const k = KEYWORDS[e.when];
-  const extra = e.when === 'grow' ? stars(stage ?? 2) : '';
-  return `${kwHtml(k, extra)}：${wrap(e, body(e, def, true))}`;
+  return `${kwHtml(k)}：${wrap(e, body(e, def, true))}`;
 }
 
 export function stageLines(def, i) {

@@ -61,8 +61,9 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
   background: linear-gradient(270deg, rgba(232, 199, 126, .25), rgba(20, 26, 46, .95)); font-family: "Shippori Mincho", serif; color: var(--gold-hi); }
 .table { padding: 0 56px 4px 16px; display: grid; gap: 0; }
 /* 工程9（ui.md の気づいたこと）：お題は左下（手元の早見表）、摘む欄は場のカードの横、すること・説明は庭のすぐ右に重ねる */
-.row-top { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.row-top { display: grid; grid-template-columns: auto auto 1fr; gap: 14px; align-items: stretch; }
 .row-bottom { display: grid; grid-template-columns: 250px auto minmax(360px, 1fr); gap: 14px; align-items: stretch; }
+.a-goals { align-self: start; }
 .a-action { display: flex; flex-direction: column; min-height: 0; }
 .a-action .panel { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
 .panel-body { flex: 1; min-height: 0; overflow: auto; }
@@ -82,8 +83,13 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
 .a-garden .cell.drop-over { box-shadow: 0 0 0 3px var(--sel); background: var(--target); }
 .swap-box { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 12px; display: grid; gap: 4px; }
 .a-goals .goal { grid-template-columns: 40px 1fr; }
-.a-bundles .bundles { flex-direction: column; align-items: flex-start; gap: 5px; }
-.a-market .market { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+/* 工程9 E：束は1つを縦にして横に並べる（入れ替えが出ても高さが変わらない） */
+.a-bundles { width: max-content; }
+.a-bundles .bundles { flex-wrap: nowrap; gap: 6px; }
+.a-bundles .bundle { flex-direction: column; padding: 6px 5px; gap: 5px; }
+.a-bundles .swap-box { max-width: 230px; }
+/* 工程9 E：場・手元・庭のカードは同じ大きさ（庭に合わせて 138×168） */
+.a-market .market { grid-template-columns: repeat(6, 138px); gap: 8px; }
 .a-goals .goals { gap: 4px; }
 .a-goals .goal { padding: 2px 8px; }
 .a-goals .goal span { font-size: 11px; line-height: 1.25; }
@@ -180,7 +186,7 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
 
 .panel { margin-top: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 150px; }
 .panel p { margin: 4px 0 8px; }
-.panel .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; }
+.panel .row { display: grid; grid-template-columns: repeat(auto-fill, 138px); gap: 8px; margin-bottom: 8px; }
 .panel button { margin: 2px 4px 2px 0; }
 .disc { display: inline-flex; gap: 4px; align-items: center; margin-right: 10px; }
 
@@ -230,7 +236,6 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
 .pool-head { display: flex; justify-content: space-between; align-items: center; }
 
 @media (max-width: 1500px) {
-  .row-top { grid-template-columns: 200px minmax(0, 1fr) 300px; }
-  .a-market .market { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .a-market .market { grid-template-columns: repeat(3, 138px); }
   .row-bottom { grid-template-columns: 220px auto minmax(260px, 1fr); }
 }
