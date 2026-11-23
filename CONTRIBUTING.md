@@ -88,7 +88,7 @@ Gateway Garden の「世界」は、ほかのゲームから来た住人のカ�
 | 項目 | 選べるもの |
 | --- | --- |
 | `when` | `place` 置いたとき・`activate` 毎ラウンドの終わり・`grow` その★に育ったとき（★★・★★★だけ）・`pick` 摘むとき（導きのカードの★★から）・`end` ゲームの終わりの点・`always` 置いてある間ずっと・`use` 手入れフェーズで好きなときに1ラウンド1回 |
-| `do` | `gain`（`color`,`amount`）魔素を得る・`convert`（`to`,`amount`）色を変える・`stageUp`（`amount`）範囲から1枚選んで★を育てる・`discount`（`amount`）育てる魔素を減らす（`always` だけ）・`score`（`amount`）点・`hoard`（`every`,`amount`）終わりに残った魔素 `every` 個につき `amount` 点（`end` だけ）・`limit`（`amount`）持てる魔素を増やす（`always` だけ）・`trigger` 範囲の当てはまるカードを全部呼応させる・`move` 範囲のカード1枚を庭の別のマスへ動かす・`bend`（`kind`）摘み方を曲げる・`remove`（`amount` はなくてもよい）範囲のカード1枚まで（選ぶ）を庭から取り除く。`amount` があれば、そのカードの★ごとにその色の魔素を `amount` 個得る・`copy` 範囲（なければこのカード）の1枚の写しを、手元のカードに加える（1人1ラウンドに1枚まで） |
+| `do` | `gain`（`color`,`amount`）魔素を得る・`convert`（`to`,`amount`）色を変える・`stageUp`（`amount`）範囲から1枚選んで★を育てる・`discount`（`amount`）育てる魔素を減らす（`always` だけ）・`score`（`amount`）点・`hoard`（`every`,`amount`）終わりに残った魔素 `every` 個につき `amount` 点（`end` だけ）・`limit`（`amount`）持てる魔素を増やす（`always` だけ）・`trigger` 範囲の当てはまるカードを全部呼応させる・`move` 範囲のカード1枚を庭の別のマスへ動かす・`bend`（`kind`）摘み方を曲げる・`remove`（`amount` はなくてもよい）範囲のカード1枚まで（選ぶ。`area` が `self` なら選ばずにこのカード）を庭から取り除く。`amount` があれば、そのカードの★ごとにその色の魔素を `amount` 個得る・`copy` 範囲（なければこのカード）の1枚の写しを、手元のカードに加える（1人1ラウンドに1枚まで） |
 | `area` | `self` このカード・`adjacent` 上下左右・`row` 同じ行・`column` 同じ列・`cross` 同じ行と列・`garden` 庭ぜんぶ・`connected` 連なり（このカードから上下左右に、`filter` に合うカードでつながっている全部） |
 | `filter` | `element`（色。`self` で同じ色）・`role`・`minStage`（1〜3）・`origin`（`same` 同じ世界／`other` 違う世界）・`empty`（空きマス）・`position`（`center` 中央／`corner` 角／`edge` 辺） |
 | `per` | `{ "area", "filter" }`：当てはまるカードごとに `amount` 倍 |

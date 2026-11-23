@@ -82,6 +82,7 @@ function body(e, def, html) {
     case 'move': return `${target(e.area, e.filter, html)}1枚を別のマスへ動かす`;
     case 'remove': {
       const w = html ? kwHtml(TERMS.remove) : '溶解';
+      if (e.area === 'self') return `このカードを${w}${e.amount ? `（その★ごとに${html ? kwHtml(TERMS.gain, e.amount) : `産出${e.amount}`}）` : ''}`;
       return `${target(e.area, e.filter, html)}1枚まで${w}${e.amount ? `（その★ごとに${html ? kwHtml(TERMS.gain, e.amount) : `産出${e.amount}`}）` : ''}`;
     }
     case 'copy': {

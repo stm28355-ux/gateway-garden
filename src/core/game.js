@@ -317,6 +317,7 @@ function runTask(cat, st, pl, task) {
     const options = cellsIn(cat, pl, src, task.area, task.filter).filter((c) => pl.garden[c] && matches(cat, pl, src, c, task.filter));
     if (!options.length) return;
     if (task.t === 'copy' && options.length === 1) return copyCard(st, pl, options[0]);
+    if (task.t === 'remove' && task.area === 'self') return removeCard(cat, st, pl, src, task.amount); // 自分を溶かすのは選ばずにすぐ（手入れなら、使うと決めたとき）
     pl.choice = { kind: task.t, options, amount: task.amount, source: task.uid };
     return;
   }

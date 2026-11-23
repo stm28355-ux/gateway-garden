@@ -130,3 +130,13 @@ test('複製は1人1ラウンドに1枚まで（育てる魔素0で、複製→�
   applyMut(cat, st, { type: 'use', player: 0, cell: 1 });
   assert.equal(st.players[0].pending.filter((x) => x.id === 'parts-test-2').length, 1);
 });
+
+test('自分を溶かす（area: self）は選ばずにすぐ。その前に書いた効果は動く', () => {
+  const def = cat.cards['parts-test-4']; // ★★：開花で自分を溶解
+  const st = reactState([[0, 'parts-test-4', 2]]);
+  applyMut(cat, st, { type: 'done', player: 0 });
+  assert.equal(st.players[0].garden[0], null);
+  assert.equal(st.players[0].choice?.kind === 'remove', false);
+  assert.ok(def);
+  assert.deepEqual(stageLines(def, 1), ['開花：このカードを溶解']);
+});
