@@ -151,7 +151,7 @@ const trunk = url(sprite(9, 46, 4, (x, y) => { // 左の幹と上の茂み
 const leaf = url(sprite(4, 3, 3, (x, y) => ((y !== 1 && (x === 0 || x === 3)) ? null : ((x + y) % 3 ? '#5a8f3a' : '#7bb04a'))));
 
 const ART = {
-  sky: stars(7, 70, 0.12), twinkle: stars(11, 24, 0.5), cliff, roots, bricks, grass, plot, planks, post, gate, vine, trunk, leaf,
+  sky: stars(7, 70, 0.12), twinkle: stars(11, 18, 0.15), cliff, roots, bricks, grass, plot, planks, post, gate, vine, trunk, leaf,
 };
 
 // 一度だけ CSS の変数に入れる

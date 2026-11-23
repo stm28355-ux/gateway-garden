@@ -32,12 +32,21 @@ const center = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 const rectOf = (sel) => document.querySelector(sel)?.getBoundingClientRect() ?? null;
 const later = (ms, fn) => setTimeout(fn, ms);
 
-function spawn(cls, html, r, ms) {
+let top = null; // 紙吹雪だけは結果の画面の上に
+function topLayer() {
+  if (top?.isConnected) return top;
+  top = document.createElement('div');
+  top.id = 'fx-top';
+  document.body.append(top);
+  return top;
+}
+
+function spawn(cls, html, r, ms, parent = null) {
   const el = document.createElement('div');
   el.className = `fx ${cls}`;
   el.innerHTML = html;
   if (r) Object.assign(el.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
-  ensureLayer().append(el);
+  (parent ?? ensureLayer()).append(el);
   later(ms, () => el.remove());
   return el;
 }
@@ -288,7 +297,7 @@ function confetti() {
   const colors = ['#ffe28a', '#e3604f', '#4f8fe0', '#4ea860', '#efe9d6', '#e8bf35'];
   const W = innerWidth;
   for (let i = 0; i < 70; i++) {
-    const x = Math.random() * W, el = spawn('fx-bit fx-confetti', '', { left: x, top: -20, width: 8, height: 12 }, 3200);
+    const x = Math.random() * W, el = spawn('fx-bit fx-confetti', '', { left: x, top: -20, width: 8, height: 12 }, 5400, topLayer());
     el.style.background = colors[i % colors.length];
     el.animate([{ transform: 'translate(0, 0) rotate(0)' }, { transform: `translate(${(Math.random() - 0.5) * 200}px, ${innerHeight + 40}px) rotate(${Math.random() * 720}deg)` }],
       { duration: 2200 + Math.random() * 900, delay: 1400 + Math.random() * 600, easing: 'ease-in', fill: 'both' });

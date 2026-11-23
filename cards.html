@@ -15,6 +15,7 @@
 import { buildCatalog } from './src/core/game.js';
 import { filterHtml, listHtml, allState, toggleFilter } from './src/ui/cardlist.js';
 import { glossaryHtml, setExplain, getExplain } from './src/ui/describe.js';
+import { rulesHtml } from './src/ui/rules.js';
 
 const get = async (p) => (await fetch(p)).json();
 const ids = await get('expansions/index.json');
@@ -28,7 +29,7 @@ try { setExplain(localStorage.getItem('gg-explain') === 'on'); } catch { /* 保�
 const btn = document.getElementById('explain');
 const draw = () => {
   btn.textContent = `説明：${getExplain() ? 'あり' : 'なし'}`;
-  root.innerHTML = `<details class="rules"><summary>キーワード</summary>${glossaryHtml()}</details>${filterHtml(origins, state)}${listHtml(Object.values(cat.cards), state, { originNames })}`;
+  root.innerHTML = `<details class="rules"><summary>遊び方（ゲームの流れの図とルール）</summary>${rulesHtml()}</details><details class="rules"><summary>キーワード</summary>${glossaryHtml()}</details>${filterHtml(origins, state)}${listHtml(Object.values(cat.cards), state, { originNames })}`;
 };
 btn.addEventListener('click', () => {
   setExplain(!getExplain());
@@ -38,5 +39,6 @@ btn.addEventListener('click', () => {
 root.addEventListener('change', (ev) => { if (ev.target.dataset.filter) { toggleFilter(state, ev.target); draw(); } });
 draw();
 </script>
+<script type="module">import { installScene } from './src/art/scene.js'; installScene(); // 夜空の背景（index と同じ）</script>
 </body>
 </html>

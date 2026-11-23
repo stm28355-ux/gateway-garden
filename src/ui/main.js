@@ -4,7 +4,7 @@ import { buildCatalog, copiesFor, applyAction, pickOrder, autoPay, buyCost, grow
 import { wantOf } from '../core/cpu.js';
 import { ELEMENTS, GROWTH } from '../core/schema.js';
 import { GOALS, GOAL_POINTS } from '../core/goals.js';
-import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars, glossaryHtml, setExplain } from './describe.js';
+import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars, setExplain } from './describe.js';
 import { GameHost, HostRoom, GuestClient } from '../net/session.js';
 import { openTrystero } from '../net/trystero.js';
 import { turnServers } from '../net/turn.js';
@@ -15,11 +15,13 @@ import { gemSvg } from './gems.js';
 import { cardArt } from '../art/index.js';
 import { goalArt } from '../art/goals.js';
 import { installScene } from '../art/scene.js';
+import { rulesHtml } from './rules.js';
 import { capture as fxCapture, play as fxPlay, isCalm, setCalm } from './fx.js';
 
 const memo = installMemo(); // 落書き（#6）。自分の画面だけに残る
 
 let logOpen = false;  // 右のふちの「できごと」
+let rulesOpen = false; // 右のふちの「遊び方」（対戦中もルールと流れの図を見られる）
 let oppOpen = null;   // 上の帯で押した相手（詳しく見る）
 let poolOpen = false; // ゲーム中の「札の一覧」（#8）
 let poolState = null;
@@ -111,7 +113,7 @@ function renderSetup() {
       ${busy ? `<p class="muted">${esc(busy)}</p>` : ''}
     </form>
     ${mode !== 'solo' ? '<p class="muted">通信対戦はサーバーなしで、ブラウザ同士を直接つなぎます。同じ合言葉を入れた人が同じ部屋に入ります。</p>' : ''}
-    <details class="rules"><summary>遊び方（短く）</summary>${rulesHtml()}</details>
+    <details class="rules"><summary>遊び方（ゲームの流れの図とルール）</summary>${rulesHtml()}</details>
     <p class="muted small">版 ${APP_VERSION}・<a href="cards.html">カードの一覧</a></p>
   </main>`;
   for (const b of app.querySelectorAll('[data-mode]')) b.addEventListener('click', () => { mode = b.dataset.mode; renderSetup(); });
@@ -132,16 +134,6 @@ function renderSetup() {
       joinRoom({ name: nm, code: f.get('code').trim() });
     }
   });
-}
-
-function rulesHtml() {
-  return `<ol>
-    <li><b>採集フェーズ（順番に）</b>：場の束を1つ摘む（3個の魔素が手元に入る）。そのあと、手持ちの魔素で場のカードを2枚まで招ける（2枚目は値段に好きな色1が足される）。「好きな色」はどの色で払ってもよい。</li>
-    <li><b>手入れフェーズ（全員同時）</b>：招いたカード（住人）を庭に置く（2枚まで置かずに持っておける）。カードと同じ色の魔素を乗せて★を育てる（何回でも）。「このラウンドを終える」で、庭のカードが左上から順に開花する。終えるまでは「1つ戻す」でやり直せる。ほかの人がしたことは、ラウンドが終わるまで見えない。</li>
-    <li>手入れフェーズで得た魔素は、その場で使える。持てる魔素は10個まで（ラウンドの終わりにあふれた分を捨てる）。育てる魔素は強化で0個まで下がる。</li>
-    <li>導きのカードは、★★から摘み方を曲げる（足す・入れ替える）。</li>
-    <li>8ラウンド（短めは6）で終わり。カードの★の点、実り、お題カード（満たしたラウンドの順に5・3・1・0点）の合計で比べる。</li><li>キーワード：${glossaryHtml()}</li>
-  </ol>`;
 }
 
 function attach(sess) {
@@ -243,6 +235,7 @@ function renderLobby() {
       <button class="primary" data-act="lobby-start">はじめる</button>`
     : (info ? '<p class="muted">ホストが始めるのを待っています…</p>' : '')}
     <p><button data-act="lobby-leave">やめる</button></p>
+    <details class="rules"><summary>遊び方（ゲームの流れの図とルール）</summary>${rulesHtml()}</details>
   </main>`;
 }
 
@@ -545,7 +538,7 @@ function oppDetailHtml() {
   const s = scoreOf(cat, st, oppOpen);
   const note = st.phase === 'react' ? '<p class="muted">手入れフェーズ中は、このフェーズが始まった時の庭を見せています。</p>' : '';
   return `<div class="overlay" data-act="opp-close"><div class="pool opp-detail" data-stop>
-    <div class="pool-head"><h2>${esc(pl.name)} の庭　${s.total}点（★${s.stage}・実り${s.end}・お題${s.goals}）</h2><button data-act="opp-close">閉じる</button></div>
+    <div class="pool-head"><h2>${esc(pl.name)}の庭　${s.total}点（★${s.stage}・実り${s.end}・お題${s.goals}）</h2><button data-act="opp-close">閉じる</button></div>
     ${note}<div class="mana">${manaRow(pl.mana)}${pl.pending.length ? `<span class="muted">手元のカード：${pl.pending.map((c) => `「${esc(defById(c.id).name)}」`).join('')}</span>` : ''}</div>
     <div class="board-slab">${gardenHtml(oppOpen)}</div>
   </div></div>`;
@@ -630,7 +623,7 @@ function render() {
     <div class="row-bottom">
       <section class="sec a-goals"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
       <section class="sec a-garden mine">
-        <h2 class="sec-title">${esc(pl.name)} の庭</h2>
+        <h2 class="sec-title">${esc(pl.name)}の庭</h2>
         <div class="me-head"><span class="me-score">${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span><span class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></span></div>
         <div class="board-slab">${gardenHtml(ME)}</div>
       </section>
@@ -638,6 +631,7 @@ function render() {
     </div>
   </main>
   <nav class="sidetabs">
+    <button data-act="rules-open">遊び方</button>
     <button data-act="log-open">できごと</button>
     <button data-act="pool">カードの一覧</button>
     <button data-act="memo">メモ</button>
@@ -648,6 +642,7 @@ function render() {
   ${endHtml()}
   ${poolOpen ? poolHtml() : ''}
   ${logOpen ? logHtml() : ''}
+  ${rulesOpen ? `<div class="overlay" data-act="rules-close"><div class="pool rules-pop" data-stop><div class="pool-head"><h2>遊び方</h2><button data-act="rules-close">閉じる</button></div>${rulesHtml()}</div></div>` : ''}
   ${oppOpen !== null ? oppDetailHtml() : ''}`;
   fxPlay(lastView, st, ME, fxBefore, { pickOrder });
   lastView = st;
@@ -795,6 +790,8 @@ app.addEventListener('click', async (ev) => {
     case 'resign': return resign();
     case 'pool': poolOpen = true; break;
     case 'log-open': logOpen = true; break;
+    case 'rules-open': rulesOpen = true; break;
+    case 'rules-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; rulesOpen = false; break;
     case 'log-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; logOpen = false; break;
     case 'opp': oppOpen = oppOpen === n('p') ? null : n('p'); break;
     case 'opp-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; oppOpen = null; break;
