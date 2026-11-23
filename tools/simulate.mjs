@@ -64,6 +64,10 @@ if (patchPath) say(`試しの直し：${patchPath}`);
 say(`育てる値段：早熟 ${GROWTH.early.join('・')}、平ら ${GROWTH.flat.join('・')}、晩成 ${GROWTH.late.join('・')}`);
 
 const cardStats = {};
+// 進化：進化先のカード → 進化前のカード。進化前の札の効きは、進化した後も含めて数える（進化後は進化前を通っているので）
+const evolvedFrom = {};
+for (const c of Object.values(cat.cards)) for (const st of c.stages) for (const e of st.effects) if (e.do === 'evolve') evolvedFrom[e.into] = c.id;
+const lineNames = (id) => { const names = [cat.cards[id].name]; for (let k = evolvedFrom[id]; k; k = evolvedFrom[k]) names.push(cat.cards[k].name); return names; };
 for (const n of counts) {
   const t0 = Date.now();
   const rows = [];
@@ -92,12 +96,13 @@ for (const n of counts) {
         limitCard: pl.garden.some((x) => x && YELLOW_HOARD.has(cat.cards[x.id].name) && cat.cards[x.id].stages[x.stage - 1].effects.some((e) => e.do === 'limit' || e.do === 'hoard')) });
       for (const x of pl.garden) {
         if (!x) continue;
-        const k = cat.cards[x.id].name;
-        cardStats[k] ??= { owned: 0, wins: 0, stage: 0, games: 0, share: 0 };
-        cardStats[k].owned++;
-        cardStats[k].stage += x.stage;
-        cardStats[k].wins += win ? 1 : 0;
-        cardStats[k].share += 1 / n;
+        for (const k of lineNames(x.id)) {
+          cardStats[k] ??= { owned: 0, wins: 0, stage: 0, games: 0, share: 0 };
+          cardStats[k].owned++;
+          cardStats[k].stage += x.stage;
+          cardStats[k].wins += win ? 1 : 0;
+          cardStats[k].share += 1 / n;
+        }
       }
     }
   }
@@ -133,13 +138,14 @@ for (const n of counts) {
 say();
 say('## 札ごと（全人数をまとめて）');
 say();
-say('「勝ちへの効き」＝その札を持っていた人の1位の割合 ÷ 人数から見た1位の割合。1.0 より大きいほど勝ちに効いている。');
+say('「勝ちへの効き」＝その札を持っていた人の1位の割合 ÷ 人数から見た1位の割合。1.0 より大きいほど勝ちに効いている。進化する札は、進化した後の札を持っていた人も含めて数える（進化前は「進化後も含む」）。');
 say();
 say('| 札 | 出身 | 色 | 役目 | 持たれた回数 | 終わりの段階（平均） | 勝ちへの効き |');
 say('| --- | --- | --- | --- | --- | --- | --- |');
 for (const [name, s] of Object.entries(cardStats).sort((a, b) => (b[1].wins / b[1].share) - (a[1].wins / a[1].share))) {
   const d = Object.values(cat.cards).find((c) => c.name === name);
-  say(`| ${name} | ${d.origin} | ${COLOR_JA[d.element]} | ${ROLE_JA[d.role]} | ${s.owned} | ${f1(s.stage / s.owned)} | ${(s.wins / s.share).toFixed(2)} |`);
+  const evolves = d.stages.some((st) => st.effects.some((e) => e.do === 'evolve'));
+  say(`| ${name}${evolves ? '（進化後も含む）' : ''} | ${d.origin} | ${COLOR_JA[d.element]} | ${ROLE_JA[d.role]} | ${s.owned} | ${f1(s.stage / s.owned)} | ${(s.wins / s.share).toFixed(2)} |`);
 }
 
 if (out) {
