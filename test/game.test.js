@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  applyAction, applyMut, autoPay, canPay, createGame, emptyMana, growCost, limitOf, scoreOf, whoActs, GameError,
+  applyAction, applyMut, autoPay, canPay, createGame, emptyMana, growCost, limitOf, pickOrder, scoreOf, whoActs, GameError,
 } from '../src/core/game.js';
 import { GOALS, goalPointsOf } from '../src/core/goals.js';
 import { playGame } from '../src/core/autoplay.js';
@@ -11,7 +11,7 @@ const cat = baseCatalog();
 
 // 反応フェーズの1人の庭を、決めた札で作って試す
 function reactState(cards, mana = {}) {
-  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 7 });
+  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 7, firstPlayer: 0 });
   st.phase = 'react';
   const pl = st.players[0];
   pl.status = 'acting';
@@ -39,11 +39,11 @@ test('CPU どうしで 2〜4人が最後まで遊べる', () => {
 });
 
 test('始まりは手番の逆順に1枚ずつ取り、場は6枚・束は人数で4か5（D1・D6・D7）', () => {
-  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 3 });
+  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 3, firstPlayer: 0 });
   assert.deepEqual(st.draftOrder, [2, 1, 0]);
   assert.equal(st.market.length, 6);
   assert.equal(st.bundles.length, 5);
-  assert.equal(createGame(cat, { players: [{ name: 'A' }, { name: 'B' }] }).bundles.length, 4);
+  assert.equal(createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], firstPlayer: 0 }).bundles.length, 4);
   assert.throws(() => applyAction(cat, st, { type: 'draft', player: 0, market: 0 }), GameError);
   const s2 = applyAction(cat, st, { type: 'draft', player: 2, market: 0 });
   assert.equal(s2.players[2].pending.length, 1);
@@ -116,7 +116,7 @@ test('連鎖：段階が上がると隣を発動、同じ札は1回だけ（読�
 });
 
 test('札は1回の拾いで2枚まで、2枚目は任1が足される（フェーズ4）', () => {
-  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 11 });
+  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 11, firstPlayer: 0 });
   st.phase = 'pick';
   st.bundles[0] = ['red', 'red', 'red'];
   st.market[0] = { uid: 501, id: byName(cat, '狼煙ギツネ') }; // 赤1
@@ -214,7 +214,7 @@ test('上限を超えたら反応フェーズの終わりに選んで捨てる�
 });
 
 test('拾う：入れ替えてから取り、足すは入れ替えた後の束で見る（D12）', () => {
-  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 9 });
+  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 9, firstPlayer: 0 });
   st.phase = 'pick';
   const pl = st.players[0];
   pl.garden[0] = { uid: 900, id: byName(cat, '道しるべフクロウ'), stage: 2 };
@@ -289,7 +289,7 @@ test('CPU は「使う」で札を動かして得になるなら使う（#2）',
 });
 
 test('whoActs：拾うのは1人ずつ、反応は全員同時', () => {
-  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 1 });
+  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }, { name: 'C' }], seed: 1, firstPlayer: 0 });
   assert.deepEqual(whoActs(st), [2]);
   const s = applyMut(cat, st, { type: 'draft', player: 2, market: 0 });
   applyMut(cat, s, { type: 'draft', player: 1, market: 0 });
@@ -297,4 +297,17 @@ test('whoActs：拾うのは1人ずつ、反応は全員同時', () => {
   assert.deepEqual(whoActs(s), [0]);
   for (const p of [0, 1, 2]) applyMut(cat, s, { type: 'pick', player: p, bundle: 0, bends: [], buy: null });
   assert.deepEqual(whoActs(s), [0, 1, 2]);
+});
+
+test('最初の先番は種で決まり、席0 にかたよらない（ふり返り前の確かめ）', () => {
+  for (const n of [2, 3, 4]) {
+    const firsts = new Set();
+    for (let seed = 1; seed <= 40; seed++) {
+      const st = createGame(cat, { players: Array.from({ length: n }, (_, i) => ({ name: String(i) })), seed });
+      assert.deepEqual(st.draftOrder, [...pickOrder(st)].reverse());
+      firsts.add(st.firstPlayer);
+      assert.equal(createGame(cat, { players: Array.from({ length: n }, (_, i) => ({ name: String(i) })), seed }).firstPlayer, st.firstPlayer); // 同じ種なら同じ
+    }
+    assert.equal(firsts.size, n);
+  }
 });

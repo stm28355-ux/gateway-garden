@@ -47,7 +47,7 @@ test('package.json の版とゲームの版がそろっている', () => {
 });
 
 test('見え方：山と乱数は見せない。反応フェーズ中のほかの人は始まった時のまま', () => {
-  let st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 3 });
+  let st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 3, firstPlayer: 0 });
   for (const p of [1, 0]) st = applyAction(cat, st, { type: 'draft', player: p, market: 0 });
   for (const p of [0, 1]) st = applyAction(cat, st, { type: 'pick', player: p, bundle: 0, bends: [] });
   const start = snapshotReact(st);
@@ -63,7 +63,7 @@ test('見え方：山と乱数は見せない。反応フェーズ中のほか�
 
 test('できごと：反応フェーズでほかの人がしたことは、ラウンドの後にまとめて見える', () => {
   const j = new Journal(cat, 2);
-  let st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 3 });
+  let st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 3, firstPlayer: 0 });
   const step = (a) => { const b = st; st = applyAction(cat, st, a); j.record(b, a, st); };
   for (const p of [1, 0]) step({ type: 'draft', player: p, market: 0 });
   for (const p of [0, 1]) step({ type: 'pick', player: p, bundle: 0, bends: [] });

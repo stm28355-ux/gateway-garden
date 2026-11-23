@@ -11,7 +11,7 @@ for (const [id, v] of Object.entries(rec.versions)) {
   if (cat.versions[id] !== v) console.log(`注意：${id} の版が違う（記録 ${v}／今 ${cat.versions[id]}）`);
 }
 
-const st = createGame(cat, { players: rec.players.map((name, i) => ({ name, cpu: i ? 'normal' : null })), rounds: rec.rounds, seed: rec.seed });
+const st = createGame(cat, { players: rec.players.map((name, i) => ({ name, cpu: i ? 'normal' : null })), rounds: rec.rounds, seed: rec.seed, firstPlayer: rec.firstPlayer ?? 0 }); // 0.14.2 より前の記録は先番が席0
 let round = 1;
 let last = 0;
 const show = (label) => {

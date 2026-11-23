@@ -137,7 +137,7 @@ export function pickOrder(st) {
 // 1種類あたりの枚数：ふつうは2枚。山が60枚に届かない世界の組み合わせ（拡張だけで遊ぶときなど）は増やす（工程8：拡張だけの4人戦で山が尽きた）
 export const copiesFor = (cat) => Math.max(2, Math.ceil(60 / cat.deckIds.length));
 
-export function createGame(cat, { players, rounds = 8, seed = 1, copies = copiesFor(cat) }) {
+export function createGame(cat, { players, rounds = 8, seed = 1, copies = copiesFor(cat), firstPlayer = null }) {
   if (players.length < 2 || players.length > 4) fail('2〜4人で遊ぶ');
   const st = {
     rng: seed | 0, round: 1, rounds, phase: 'draft', turn: 0, firstPlayer: 0, uidNext: 1,
@@ -156,6 +156,8 @@ export function createGame(cat, { players, rounds = 8, seed = 1, copies = copies
   st.bundles = Array.from({ length: players.length === 2 ? 4 : 5 }, () => randomBundle(st)); // D6
   st.goals = shuffle(st, goalPool(cat)).slice(0, GOAL_COUNT);
   for (const g of st.goals) st.claims[g] = [];
+  // 最初の先番は種で決める（工程10 の前の確かめ：いつも同じ席が最後に招くのをやめる）。決めて試すときは firstPlayer を渡す
+  st.firstPlayer = firstPlayer ?? randInt(st, players.length);
   st.draftOrder = [...pickOrder(st)].reverse(); // D1：手番の逆順
   return st;
 }

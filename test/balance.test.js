@@ -22,7 +22,8 @@ test('調整の守り：基本セットの札・色・お題に大きな崩れ�
   const goals = {};
   for (let g = 0; g < GAMES; g++) {
     const n = 2 + (g % 3);
-    const { st } = playGame(cat, { players: n, seed: 7000 + g, cpu: 'smart' });
+    // 先番は席を順に回す（先番の運で測りが揺れないように。ゲームでは種で決まる）
+    const { st } = playGame(cat, { players: n, seed: 7000 + g, cpu: 'smart', firstPlayer: Math.floor(g / 3) % n });
     const sc = st.players.map((_, p) => scoreOf(cat, st, p).total);
     const top = Math.max(...sc);
     st.players.forEach((pl, p) => {

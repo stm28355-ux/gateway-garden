@@ -3,9 +3,10 @@ import { applyMut, createGame, whoActs } from './game.js';
 import { cpuAction } from './cpu.js';
 
 // cpu：全員の強さ（'normal'・'smart'）か、席ごとの並び（例：['smart', 'normal']）
-export function playGame(cat, { players = 2, rounds = 8, seed = 1, maxSteps = 5000, onStep, cpu = 'normal' } = {}) {
+// firstPlayer：最初の先番（なければ種で決まる）
+export function playGame(cat, { players = 2, rounds = 8, seed = 1, maxSteps = 5000, onStep, cpu = 'normal', firstPlayer = null } = {}) {
   const level = (i) => (Array.isArray(cpu) ? cpu[i % cpu.length] : cpu);
-  const st = createGame(cat, { players: Array.from({ length: players }, (_, i) => ({ name: `CPU${i + 1}`, cpu: level(i) })), rounds, seed });
+  const st = createGame(cat, { players: Array.from({ length: players }, (_, i) => ({ name: `CPU${i + 1}`, cpu: level(i) })), rounds, seed, firstPlayer });
   const actions = [];
   for (let step = 0; st.phase !== 'end'; step++) {
     if (step > maxSteps) throw new Error('終わらない');

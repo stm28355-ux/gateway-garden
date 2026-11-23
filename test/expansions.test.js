@@ -33,7 +33,7 @@ test('目標札「世界の交わり」は拡張を混ぜたときだけ出る',
   if (!ids.length) return;
   const cat = buildCatalog([load('base'), load(ids[0])]);
   assert.ok(goalPool(cat).includes('world-cross'));
-  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 1 });
+  const st = createGame(cat, { players: [{ name: 'A' }, { name: 'B' }], seed: 1, firstPlayer: 0 });
   const ext = cat.deckIds.find((c) => c.startsWith(ids[0]));
   const base = cat.deckIds.filter((c) => c.startsWith('base'));
   const g = st.players[0].garden;

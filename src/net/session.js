@@ -29,7 +29,7 @@ export class GameHost extends Emitter {
     this.st = createGame(cat, { players, rounds, seed });
     this.journal = new Journal(cat, players.length);
     this.journal.note(`ゲーム開始（種 ${seed}）。目標札：${this.st.goals.map((g) => GOALS[g].name).join('・')}`);
-    this.record = { game: 'gateway-garden', app: APP_VERSION, seed, rounds, players: players.map((p) => p.name), versions: cat.versions, start: Date.now(), actions: [], roundTimes: [] };
+    this.record = { game: 'gateway-garden', app: APP_VERSION, seed, rounds, firstPlayer: this.st.firstPlayer, players: players.map((p) => p.name), versions: cat.versions, start: Date.now(), actions: [], roundTimes: [] };
     this.reactStart = null;
     this.timer = null;
     this.remote = new Map(); // 席 → 相手の peerId（部屋を作ったときだけ）

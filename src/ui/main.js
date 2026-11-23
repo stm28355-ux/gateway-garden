@@ -654,7 +654,7 @@ function poolHtml() {
   poolState ??= allState(origins);
   const originNames = Object.fromEntries(origins.map((o) => [o.id, o.name]));
   const cards = cat.deckIds.map((id) => cat.cards[id]);
-  return `<div class="overlay"><div class="pool">
+  return `<div class="overlay" data-act="pool-close"><div class="pool" data-stop>
     <div class="pool-head"><h2>このゲームのカード（各種類${copiesFor(cat)}枚）</h2><button data-act="pool-close">閉じる</button></div>
     ${filterHtml(origins, poolState)}
     ${listHtml(cards, poolState, { originNames, left: leftCounts(cat, st, copiesFor(cat)), copies: copiesFor(cat) })}
@@ -795,7 +795,7 @@ app.addEventListener('click', async (ev) => {
     case 'log-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; logOpen = false; break;
     case 'opp': oppOpen = oppOpen === n('p') ? null : n('p'); break;
     case 'opp-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; oppOpen = null; break;
-    case 'pool-close': poolOpen = false; break;
+    case 'pool-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; poolOpen = false; break;
     case 'copy':
       try { await navigator.clipboard.writeText(JSON.stringify(session.record)); el.textContent = 'コピーしました'; } catch { el.textContent = 'コピーできませんでした'; }
       return;
