@@ -283,7 +283,7 @@ function cardHtml(c, { stage = null, attrs = '', cls = '', showCost = false, cos
   return `<div class="card ${d.element} ${cls}" data-card="${c.id}" data-stage="${s}" ${attrs}>
     <div class="card-top"><span class="name ${nameCls(d.name)}">${esc(d.name)}</span>${stage ? `<span class="pips">${stars(stage)}</span>` : ''}</div>
     <div class="card-art">${artHtml(d, 48)}</div>
-    <div class="card-mid">${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}${pts ? `・${pts}点` : ''}${d.origin !== 'base' ? `<span class="world-tag" title="${esc(worldName(d.origin))}">${esc(worldShort(d.origin))}</span>` : ''}</div>
+    <div class="card-mid">${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}${pts ? `・${pts}点` : ''}<span class="world-tag" title="${esc(worldName(d.origin))}">${esc(worldShort(d.origin))}</span></div>
     <div class="card-text ${plain.length > 34 ? 'long' : ''}">${lines.join('<br>')}</div>
     ${showCost ? `<div class="card-cost">${costGems(d.cost)}</div>` : ''}
     ${cost !== null ? `<div class="card-cost">育てる ${manaDot(d.element, '', 14)}${cost}</div>` : ''}
