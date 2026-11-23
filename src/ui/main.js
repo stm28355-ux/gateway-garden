@@ -14,6 +14,8 @@ import { installMemo } from './memo.js';
 import { gemSvg } from './gems.js';
 import { cardArt } from '../art/index.js';
 import { goalArt } from '../art/goals.js';
+import { installScene } from '../art/scene.js';
+import { capture as fxCapture, play as fxPlay, isCalm, setCalm } from './fx.js';
 
 const memo = installMemo(); // 落書き（#6）。自分の画面だけに残る
 
@@ -23,6 +25,7 @@ let poolOpen = false; // ゲーム中の「札の一覧」（#8）
 let poolState = null;
 
 const app = document.getElementById('app');
+installScene(); // 挿絵（夜空の島）の絵を CSS の変数に入れる
 let ME = 0;
 let expansions = [];
 let cat = null;
@@ -573,7 +576,10 @@ function phaseName() {
 function endHtml() {
   if (st.phase !== 'end') return '';
   const mins = ((session.elapsed() ?? 0) / 60000).toFixed(1);
-  const rows = [...st.result].sort((a, b) => a.rank - b.rank).map((r) => `<tr><td>${r.rank}位</td><td>${esc(nameOf(r.player))}</td><td>${r.stage}</td><td>${r.end}</td><td>${r.goals}</td><td><b>${r.total}</b></td><td>${r.stage3}</td><td>${st.players[r.player].discarded}</td></tr>`).join('');
+  const reveal = !endRevealed;
+  endRevealed = true;
+  const sorted = [...st.result].sort((a, b) => a.rank - b.rank);
+  const rows = sorted.map((r, k) => `<tr class="${reveal ? 'reveal' : ''} ${r.rank === 1 ? 'first' : ''}" style="--d:${(sorted.length - 1 - k) * 0.45}s"><td>${r.rank === 1 ? '<span class="crown">♛</span>' : ''}${r.rank}位</td><td>${esc(nameOf(r.player))}</td><td>${r.stage}</td><td>${r.end}</td><td>${r.goals}</td><td><b>${r.total}</b></td><td>${r.stage3}</td><td>${st.players[r.player].discarded}</td></tr>`).join('');
   return `<div class="overlay"><div class="end">
     <h2>結果</h2>
     <table><tr><th></th><th>名前</th><th>★の点</th><th>実り</th><th>お題カード</th><th>合計</th><th>★★★</th><th>捨てた魔素</th></tr>${rows}</table>
@@ -592,6 +598,8 @@ function endButtons() {
 
 let dragging = false; // 手元のカードを運んでいる間は描き直さない（運んでいるカードが消えないように）
 let renderLater = false;
+let lastView = null; // エフェクト（fx.js）：前に描いた盤面とくらべる
+let endRevealed = false; // 順位の発表（H3）は1回だけ
 
 function render() {
   if (dragging) { renderLater = true; return; }
@@ -599,7 +607,9 @@ function render() {
   if (screen === 'lobby') return renderLobby();
   st = session.view();
   ME = session.me;
-  if (!st) return renderLobby();
+  if (!st) { lastView = null; return renderLobby(); }
+  const fxBefore = fxCapture();
+  if (st.phase !== 'end') endRevealed = false;
   const pl = st.players[ME];
   const me = scoreOf(cat, st, ME);
   const lost = session.problem ? `<p class="error banner">${esc(session.problem)}</p>` : '';
@@ -614,8 +624,8 @@ function render() {
   ${lost}
   <main class="table">
     <div class="row-top">
-      <section class="sec a-bundles"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div>${swapHtml()}</section>
-      <section class="sec a-market"><h2 class="sec-title">場のカード（招く）</h2><div class="market">${marketHtml()}</div></section>
+      <section class="sec a-bundles isle"><h2 class="sec-title">束（摘む）</h2><div class="isle-trunk"></div><div class="bundles">${bundlesHtml()}</div>${swapHtml()}</section>
+      <section class="sec a-market isle"><h2 class="sec-title">場のカード（招く）</h2><div class="isle-glow"></div><div class="isle-path"></div><div class="isle-gate"></div><div class="market">${marketHtml()}</div></section>
     </div>
     <div class="row-bottom">
       <section class="sec a-goals"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
@@ -631,12 +641,15 @@ function render() {
     <button data-act="log-open">できごと</button>
     <button data-act="pool">カードの一覧</button>
     <button data-act="memo">メモ</button>
+    <button data-act="calm" title="飛ぶ・歩く動きをなくし、光るだけにする">${isCalm() ? '動きを戻す' : '動きを減らす'}</button>
     ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
   </nav>
   ${endHtml()}
   ${poolOpen ? poolHtml() : ''}
   ${logOpen ? logHtml() : ''}
   ${oppOpen !== null ? oppDetailHtml() : ''}`;
+  fxPlay(lastView, st, ME, fxBefore, { pickOrder });
+  lastView = st;
 }
 
 // このゲームで使っている札の一覧。「あと何枚」は、場・全員の庭と手元・捨て札に見えている分を引いた数
@@ -760,6 +773,7 @@ app.addEventListener('click', async (ev) => {
   const n = (k) => Number(d[k]);
   switch (d.act) {
     case 'memo': memo.toggle(); return;
+    case 'calm': setCalm(!isCalm()); render(); return;
     case 'pool': poolOpen = true; break;
     case 'log-open': logOpen = true; break;
     case 'log-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; logOpen = false; break;

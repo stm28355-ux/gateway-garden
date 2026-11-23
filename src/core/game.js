@@ -230,9 +230,13 @@ function runEffect(cat, st, pl, task) {
   if (mult === 0) return;
   const n = (eff.amount ?? 1) * mult;
   const repeat = (task1) => Array.from({ length: n }, () => ({ ...task1 }));
+  // 画面の演出用（工程9 H2・H7）：この操作で動いた効果の順。操作のたびに空にする。ルールには使わない
+  const fx = { uid: inst.uid, when: eff.when, do: eff.do, n };
+  (pl.fx ??= []).push(fx);
   switch (eff.do) {
     case 'gain': {
       const color = eff.color === 'self' ? defOf(cat, inst).element : eff.color;
+      fx.color = color;
       if (color === 'any') pl.queue.unshift(...repeat({ t: 'color', uid: inst.uid }));
       else addGain(pl, color, n);
       break;
@@ -252,6 +256,7 @@ function runEffect(cat, st, pl, task) {
         const target = pl.garden[c];
         if (!target || seen.includes(target.uid) || !matches(cat, pl, cell, c, eff.filter)) continue;
         seen.push(target.uid); // 読み方6：連鎖の中で同じ札は1回
+        (fx.targets ??= []).push(target.uid);
         tasks.push(...effectTasks(cat, target, 'activate', task.chain));
       }
       pl.queue.unshift(...tasks);
@@ -478,6 +483,7 @@ function snapshot(st, p) {
 export function applyMut(cat, st, a) {
   const p = a.player;
   const me = st.players[p];
+  if (me && st.phase === 'react' && a.type !== 'undo') me.fx = [];
   if (st.phase === 'react' && me && !me.cpu && UNDOABLE.includes(a.type) && ['acting', 'activating'].includes(me.status)) snapshot(st, p);
   switch (a.type) {
     case 'undo': {

@@ -20,10 +20,11 @@ export const KEYWORDS = {
   use: { word: '手入れ', help: '手入れフェーズで好きなときに。1ラウンドに1回' },
 };
 export const RESONATE = { word: '呼応', help: 'そのカードの「開花」を、今すぐもう1回動かす' };
-// 長い決まった文を短い言葉にまとめる（工程9 F1〜F3。呼応と同じく、マウスを乗せると説明が出る）
+// 長い決まった文や、よく出る文を短い言葉にまとめる（工程9 F1〜F3・産出。呼応と同じく、マウスを乗せると説明が出る）
 export const TERMS = {
   swap: { word: '入れ替え', help: '摘む束の1つを、場の別の束の1つと入れ替えてから摘む' },
   add: { word: 'おかわり', help: '摘んだ束にこのカードの色があれば、その色をもう1つ' },
+  gain: { word: '産出', help: '魔素を、その数だけ得る（色が書いてあればその色、なければ好きな色）' },
   convert: { word: '変性', help: '手持ちの魔素を、決めた数まで好きな色に変える（色が書いてあればその色に）' },
 };
 
@@ -66,7 +67,7 @@ function body(e, def, html) {
   const n = e.amount ?? 1;
   const color = e.color === 'self' ? COLOR_JA[def.element] : COLOR_JA[e.color];
   switch (e.do) {
-    case 'gain': return `${color}を${n}つ得る`;
+    case 'gain': return `${html ? kwHtml(TERMS.gain, n) : `産出${n}`}${e.color === 'any' ? '' : `（${color}）`}`;
     case 'convert': return `${html ? kwHtml(TERMS.convert, n) : `変性${n}`}${e.to === 'any' ? '' : `（${COLOR_JA[e.to]}）`}`;
     case 'stageUp': return `${target(e.area, e.filter)}1枚を★1つ育てる`;
     case 'discount': return `${target(e.area, e.filter)}を育てる魔素-${n}`;

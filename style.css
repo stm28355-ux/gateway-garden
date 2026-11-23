@@ -247,3 +247,96 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
   .a-market .market { grid-template-columns: repeat(3, 138px); }
   .row-bottom { grid-template-columns: 220px auto minmax(260px, 1fr); }
 }
+
+/* ---- 挿絵：夜空に浮かぶ島（工程9 G1〜G5・I1 ドット絵）。絵は src/art/scene.js が --art-… に入れる ---- */
+body { background: var(--art-sky), radial-gradient(ellipse 900px 260px at 62% 18%, rgba(120, 90, 200, .22), transparent 70%),
+  radial-gradient(ellipse 700px 300px at 15% 70%, rgba(60, 140, 190, .16), transparent 70%), linear-gradient(180deg, #0b1024, #141a3a 55%, #1d1838) fixed; }
+body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--art-twinkle); animation: twinkle 5s ease-in-out infinite alternate; }
+@keyframes twinkle { from { opacity: .15; } to { opacity: .9; } }
+body, .isle, .isle::before, .isle::after, .isle-gate, .isle-trunk, .a-garden, .a-goals { image-rendering: pixelated; }
+.topbar { background: rgba(8, 10, 24, .55); }
+.sec-title { z-index: 2; }
+
+/* 島：上の面が地面、下の縁が崖、その下に垂れた岩と根 */
+.row-top { grid-template-columns: auto minmax(0, 1fr); }
+.table .sec.isle { border: none; border-radius: 14px 14px 4px 4px; padding-bottom: 22px; box-shadow: 0 18px 30px -12px rgba(120, 200, 255, .18); }
+.isle::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; background: var(--art-cliff) repeat-x left top; border-radius: 0 0 4px 4px; }
+.isle::after { content: ''; position: absolute; left: 6px; right: 6px; top: 100%; height: 32px; margin-top: -1px; background: var(--art-roots) repeat-x left top; z-index: -1; }
+
+/* 場の島：石レンガの地面。右の空きに異界の門、門からカードの列へ石の道 */
+.table .a-market { background: linear-gradient(180deg, rgba(10, 12, 26, .35), rgba(10, 12, 26, .1)), var(--art-bricks); }
+.a-market .market { position: relative; z-index: 1; }
+.isle-gate { position: absolute; right: 40px; bottom: 20px; width: 196px; height: 160px; background: var(--art-gate) 0 0 / 784px 160px no-repeat;
+  animation: gate-swirl 1.4s steps(4) infinite; }
+@keyframes gate-swirl { to { background-position: -784px 0; } }
+.isle-path { position: absolute; left: 880px; right: 200px; bottom: 30px; height: 16px; background: repeating-linear-gradient(90deg, #6e7594 0 20px, #262938 20px 24px); opacity: .9; }
+.isle-glow { position: absolute; left: 880px; right: 250px; bottom: 44px; height: 70px; pointer-events: none; background: radial-gradient(closest-side at 100% 50%, rgba(127, 224, 240, .22), transparent); }
+
+/* 束の島：左の幹から枝が伸び、束が1本の茎に3つ実る房として垂れる（櫛のように） */
+.table .a-bundles { background: linear-gradient(180deg, rgba(40, 60, 90, .16), rgba(40, 60, 90, .04)); padding-left: 44px; }
+.a-bundles .bundles { position: relative; padding-top: 30px; padding-right: 6px; }
+.a-bundles .bundles::before { content: ''; position: absolute; left: -26px; right: -4px; top: 0; height: 24px; background: var(--art-vine) repeat-x; }
+.isle-trunk { position: absolute; left: 4px; top: 10px; bottom: 24px; width: 36px; background: var(--art-trunk) no-repeat left bottom / 36px 100%; z-index: 1; }
+.a-bundles .bundle { position: relative; border: none; border-radius: 14px; padding: 4px 7px 6px; min-width: 34px; transform-origin: 50% -22px;
+  background: linear-gradient(#5a8f3a, #5a8f3a) center top / 4px 86% no-repeat; animation: sway 4.5s ease-in-out infinite alternate; }
+.a-bundles .bundle:nth-child(2n) { animation-duration: 5.2s; animation-delay: -1.3s; }
+.a-bundles .bundle:nth-child(3n) { animation-duration: 3.9s; animation-delay: -2.1s; }
+@keyframes sway { from { transform: rotate(-1.2deg); } to { transform: rotate(1.2deg); } }
+.a-bundles .bundle .dot { position: relative; z-index: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); }
+.a-bundles .bundle::before { content: ''; position: absolute; left: 50%; top: -22px; width: 4px; height: 24px; margin-left: -2px; background: #5a8f3a; }
+.a-bundles .bundle::after { content: ''; position: absolute; left: 50%; top: -12px; width: 12px; height: 9px; margin-left: 1px; background: var(--art-leaf) no-repeat; }
+.a-bundles .bundle.can:hover { background-color: rgba(143, 214, 255, .12); }
+.a-bundles .bundle.sel { box-shadow: 0 0 0 2px var(--sel), 0 0 14px rgba(143, 214, 255, .5); }
+
+/* 庭の島：草原。庭の盤は木の枠の花壇、マスは耕した土 */
+.table .a-garden { border: none; border-radius: 14px 14px 4px 4px; padding-bottom: 26px;
+  background: linear-gradient(180deg, rgba(10, 16, 10, .25), rgba(10, 16, 10, .05)), var(--art-grass); box-shadow: 0 18px 30px -12px rgba(120, 200, 255, .18); }
+.a-garden::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 28px; background: var(--art-cliff) repeat-x left top; border-radius: 0 0 4px 4px; }
+.a-garden .me-head { background: rgba(10, 12, 20, .62); border-radius: 8px; padding: 3px 10px; width: max-content; }
+.a-garden .board-slab { border: 4px solid #5e4229; outline: 2px solid #2b1d12; border-radius: 6px; background: rgba(20, 30, 14, .5); box-shadow: 0 6px 0 #2b1d12; }
+.a-garden .board-slab .cell { background: var(--art-plot); border: 2px solid #2a1f16; border-radius: 4px; }
+.a-garden .board-slab .cell.empty { color: rgba(243, 234, 210, .55); }
+.a-garden .board-slab .cell.target { border-color: var(--sel); box-shadow: inset 0 0 0 2px rgba(143, 214, 255, .45); }
+.a-garden .board-slab .cell.sel { border-color: var(--gold-hi); }
+
+/* お題の立て札：板に札を貼る。下に2本の柱と小さな島 */
+.table .a-goals { border: 3px solid #2b1d12; border-radius: 6px; background: var(--art-planks); box-shadow: 0 6px 16px rgba(0,0,0,.45); margin-bottom: 96px; }
+.a-goals .goal { background: rgba(22, 16, 10, .84); border-color: #2b1d12; }
+.a-goals::after { content: ''; position: absolute; top: 100%; left: 30px; right: 30px; height: 50px; z-index: -1;
+  background: var(--art-post) left top / 16px 4px repeat-y, var(--art-post) right top / 16px 4px repeat-y; }
+.a-goals::before { content: ''; position: absolute; top: calc(100% + 46px); left: 4px; right: 4px; height: 52px; z-index: -1;
+  background: var(--art-cliff) repeat-x left top, var(--art-roots) repeat-x left 26px; }
+
+/* 動きを減らす（H10）：パソコンの設定か、画面の「動きを減らす」 */
+@media (prefers-reduced-motion: reduce) { body::before, .isle-gate, .a-bundles .bundle { animation: none; } }
+body.calm::before, body.calm .isle-gate, body.calm .a-bundles .bundle { animation: none; }
+
+/* ---- エフェクト（工程9 H1〜H10、src/ui/fx.js）。上の層に描くので、描き直しで消えない ---- */
+#fx-layer { position: fixed; inset: 0; z-index: 42; pointer-events: none; overflow: hidden; }
+.fx { position: fixed; pointer-events: none; }
+.fx-glow { border-radius: 10px; box-shadow: 0 0 0 3px var(--c), 0 0 26px 6px color-mix(in srgb, var(--c) 70%, transparent); }
+.fx-fly { display: grid; place-items: center; filter: drop-shadow(0 0 6px rgba(255, 255, 255, .7)); }
+.fx-fly svg { width: 100%; height: 100%; }
+.fx-any { width: 18px; height: 18px; border-radius: 50%; background: conic-gradient(#efe9d6, #e3604f, #4f8fe0, #4ea860, #e8bf35, #efe9d6); display: block; }
+.fx-bit { border-radius: 1px; }
+.fx-beam { transform-origin: 0 50%; background: linear-gradient(90deg, rgba(191, 244, 255, .2), #bff4ff); box-shadow: 0 0 10px #7ff0ff; border-radius: 2px; }
+.fx-label { white-space: nowrap; text-align: center; font-family: "Shippori Mincho", serif; color: #ffe28a; text-shadow: 0 2px 0 #3a2a10, 0 0 12px rgba(255, 226, 138, .8); }
+.fx-rank b { display: block; font-size: 22px; letter-spacing: .08em; }
+.fx-rank span { font-size: 18px; letter-spacing: -1px; }
+.fx-small span { font-size: 16px; font-weight: 700; color: #bff4ff; }
+.fx-bloom b, .fx-turn b { font-size: 26px; }
+.fx-turn b { color: #bff4ff; text-shadow: 0 2px 0 #102838, 0 0 14px rgba(143, 214, 255, .9); }
+.fx-pts { display: block; font-size: 24px; font-weight: 700; color: #ffe28a; text-shadow: 0 2px 0 #3a2a10, 0 0 10px rgba(255, 226, 138, .9); }
+.fx-card { overflow: hidden; }
+.fx-card .card { width: 100%; height: 100%; }
+.fx-banner { left: 50%; top: 42%; padding: 14px 60px; background: linear-gradient(90deg, transparent, rgba(10, 14, 30, .92) 18%, rgba(10, 14, 30, .92) 82%, transparent);
+  border-top: 2px solid var(--gold); border-bottom: 2px solid var(--gold); font-family: "Shippori Mincho", serif; color: var(--gold-hi); white-space: nowrap; }
+.fx-banner b { font-size: 34px; letter-spacing: .1em; } .fx-banner small { font-size: 18px; margin-left: 8px; color: var(--muted); }
+/* H3 順位の発表：下の順位から1人ずつ。1位に冠 */
+.end tr.reveal { animation: rank-in .5s ease-out both; animation-delay: var(--d); }
+@keyframes rank-in { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: none; } }
+.end tr.first td { color: var(--gold-hi); font-weight: 700; }
+.crown { display: inline-block; margin-right: 4px; color: #ffe28a; text-shadow: 0 0 10px rgba(255, 226, 138, .9); }
+.end tr.reveal.first .crown { animation: crown 0.7s cubic-bezier(.3, 1.6, .5, 1) both; animation-delay: calc(var(--d) + .4s); }
+@keyframes crown { from { transform: translateY(-20px) scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+body.calm .end tr.reveal, body.calm .end tr.reveal .crown { animation: none; }
