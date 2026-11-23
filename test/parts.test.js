@@ -147,7 +147,7 @@ const acExp = {
   cards: [
     card(1, 'white', 'generate', [[], [], [{ when: 'use', do: 'evolve', into: 'parts-ac-2', amount: 2 }]]),
     { ...card(2, 'white', 'score', [[], [], []]), evolveOnly: true },
-    card(3, 'red', 'boost', [[{ when: 'use', do: 'fuse', area: 'adjacent' }], [], []]),
+    card(3, 'red', 'boost', [0, 1, 2].map(() => [{ when: 'use', do: 'fuse', area: 'adjacent' }])),
     card(4, 'blue', 'score', [[{ when: 'end', do: 'score', amount: 1, per: { area: 'diagonal' } }], [], []]),
   ].map((c) => ({ ...c, id: c.id.replace('parts-test', 'parts-ac') })),
 };
@@ -174,7 +174,7 @@ test('進化：決まったカードに替わり★1に戻る、点を得る。�
   assert.ok(bad.some((e) => e.includes('進化先')));
 });
 
-test('融合：選んだカードを溶かし、その★の数だけこのカードを育てる（★★★まで）。しなくてもよい', () => {
+test('融合：選んだカードを溶かし、その★の数だけこのカードを育てる。★★★を超える分は1つ1点。しなくてもよい', () => {
   const blue = byName(cat2, 'しずくクラゲ');
   const st = reactState2([[4, 'parts-ac-3'], [1, blue, 2], [3, blue, 3]]);
   applyMut(cat2, st, { type: 'use', player: 0, cell: 4 });
@@ -182,6 +182,12 @@ test('融合：選んだカードを溶かし、その★の数だけこのカ�
   applyMut(cat2, st, { type: 'choose', player: 0, value: 1 });
   assert.equal(st.players[0].garden[1], null);
   assert.equal(st.players[0].garden[4].stage, 3);
+  assert.equal(st.players[0].bonus, 0);
+  // ★★★で融合すると、育ちきれない分が点になる
+  const st3 = reactState2([[4, 'parts-ac-3', 3], [1, blue, 2]]);
+  applyMut(cat2, st3, { type: 'use', player: 0, cell: 4 });
+  applyMut(cat2, st3, { type: 'choose', player: 0, value: 1 });
+  assert.equal(st3.players[0].bonus, 2);
   const st2 = reactState2([[4, 'parts-ac-3'], [1, blue, 2]]);
   applyMut(cat2, st2, { type: 'use', player: 0, cell: 4 });
   applyMut(cat2, st2, { type: 'choose', player: 0, value: null });

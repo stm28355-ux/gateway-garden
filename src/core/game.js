@@ -299,7 +299,7 @@ function runEffect(cat, st, pl, task) {
       pl.garden[cell] = { uid: st.uidNext++, id: eff.into, stage: 1 };
       if (eff.amount) pl.bonus += eff.amount;
       break;
-    case 'fuse': // 融合：範囲のカード1枚まで（選ぶ）を溶かし、溶かしたら、そのカードの★の数だけこのカードを育てる
+    case 'fuse': // 融合：範囲のカード1枚まで（選ぶ）を溶かし、溶かしたら、そのカードの★の数だけこのカードを育てる（★★★を超える分は1つ1点）
       pl.queue.unshift({ t: 'fuse', uid: inst.uid, area: eff.area, filter: eff.filter, chain: task.chain });
       break;
     default: // discount・limit は常に、bend は拾うときに扱う
@@ -404,7 +404,9 @@ function resolveChoice(cat, st, pl, value) {
       const self = cellOfUid(pl, ch.source);
       removeCard(cat, st, pl, value, 0);
       pl.choice = null;
-      if (self >= 0) for (let k = 0; k < stars && pl.garden[self].stage < 3; k++) raiseStage(cat, pl, self, ch.chain);
+      let left = stars;
+      if (self >= 0) for (; left > 0 && pl.garden[self].stage < 3; left--) raiseStage(cat, pl, self, ch.chain);
+      pl.bonus += left; // 育ちきれない分（★★★を超える分）は1つにつき1点
       return;
     }
     case 'move':
