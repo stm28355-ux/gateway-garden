@@ -3,11 +3,13 @@
 import { baseArt } from './base.js';
 import { autoBattlerArt } from './auto-battler-1.js';
 import { celestialArt } from './celestial-alchemy-1.js';
+import { arcEnCielArt } from './arc-en-ciel.js';
 
 const BY_ORIGIN = {
   base: baseArt,
   'auto-battler-1': autoBattlerArt, // 本家 auto-battler の駒の絵（16×16）をそのまま（判定 AB1）
   'celestial-alchemy-1': celestialArt, // 32×32 のドット絵（人に顔、物は顔なし）
+  'arc-en-ciel-1': arcEnCielArt, // 本家 Arc-en-ciel Creator のモンスターの絵（32×32）をそのまま
 };
 
 export function cardArt(d, size = 96) {
