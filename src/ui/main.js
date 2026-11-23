@@ -1,6 +1,6 @@
 // 画面：1人で遊ぶ（CPU と）・部屋を作る・部屋に入る。ルールの処理は src/core、ゲームの相手は src/net/session.js。
 // 描くのは「自分から見た盤面」（session.view()）だけ。1人でも通信でも同じ描き方。
-import { buildCatalog, applyAction, pickOrder, autoPay, buyCost, growCost, limitOf, manaTotal, scoreOf, MAX_BUYS, HAND_LIMIT } from '../core/game.js';
+import { buildCatalog, copiesFor, applyAction, pickOrder, autoPay, buyCost, growCost, limitOf, manaTotal, scoreOf, MAX_BUYS, HAND_LIMIT } from '../core/game.js';
 import { wantOf } from '../core/cpu.js';
 import { ELEMENTS, GROWTH } from '../core/schema.js';
 import { GOALS, goalPointsOf } from '../core/goals.js';
@@ -72,10 +72,11 @@ async function loadExpansions() {
 
 const worldName = (id) => expansions.find((e) => e.meta.id === id)?.meta.name ?? id; // 画面では拡張を「世界」と呼ぶ
 const makeCatalog = (ids) => buildCatalog(expansions.filter((e) => ids.includes(e.meta.id)));
-const chosenExpansions = () => expansions.filter((e) => e.meta.id === 'base' || document.querySelector(`input[name="exp"][value="${e.meta.id}"]`)?.checked).map((e) => e.meta.id);
+// 使う世界（基本セットも外せる。少なくとも1つ。工程8：拡張だけで遊べるように）
+const chosenExpansions = () => expansions.filter((e) => document.querySelector(`input[name="exp"][value="${e.meta.id}"]`)?.checked).map((e) => e.meta.id);
 
 function renderSetup() {
-  const exps = expansions.map((e) => `<label class="check"><input type="checkbox" name="exp" value="${e.meta.id}" checked ${e.meta.id === 'base' ? 'disabled' : ''}> ${esc(e.meta.name)}（${e.cards.length}種類・版 ${e.meta.version}）</label>`).join('');
+  const exps = expansions.map((e) => `<label class="check"><input type="checkbox" name="exp" value="${e.meta.id}" checked> ${esc(e.meta.name)}（${e.cards.length}種類・版 ${e.meta.version}）</label>`).join('');
   const name = esc(stored('gg-name') ?? 'あなた');
   const tab = (m, label) => `<button type="button" class="tab ${mode === m ? 'on' : ''}" data-mode="${m}">${label}</button>`;
   const rounds = '<label>長さ <select name="rounds"><option value="8" selected>ふつう（8ラウンド）</option><option value="6">短め（6ラウンド）</option></select></label>';
@@ -115,7 +116,10 @@ function renderSetup() {
     stored('gg-name', nm);
     if (mode === 'solo') {
       const seed = f.get('seed') ? Number(f.get('seed')) : Math.floor(Math.random() * 1e9);
-      startSolo({ name: nm, n: Number(f.get('players')), rounds: Number(f.get('rounds')), seed, ids: chosenExpansions() });
+      const ids = chosenExpansions();
+      if (!ids.length) { busy = '使う世界を1つ以上選んでください。'; renderSetup(); return; }
+      busy = '';
+      startSolo({ name: nm, n: Number(f.get('players')), rounds: Number(f.get('rounds')), seed, ids });
     } else if (mode === 'host') {
       openRoom({ name: nm, code: f.get('code').trim() });
     } else {
@@ -213,7 +217,7 @@ function roomSettingsHtml(info) {
   return `<form class="room-settings" onsubmit="return false">
     <label>人数 <select data-room="count">${counts.map((n) => opt(n, info.count)).join('')}</select>（人が足りない席は CPU）</label>
     <label>長さ <select data-room="rounds">${opt(8, info.rounds, 'ふつう（8ラウンド）')}${opt(6, info.rounds, '短め（6ラウンド）')}</select></label>
-    <fieldset><legend>使う世界</legend>${expansions.map((e) => `<label class="check"><input type="checkbox" data-room="exp" value="${e.meta.id}" ${info.expansions.includes(e.meta.id) ? 'checked' : ''} ${e.meta.id === 'base' ? 'disabled' : ''}> ${esc(e.meta.name)}（${e.cards.length}種類）</label>`).join('')}</fieldset>
+    <fieldset><legend>使う世界</legend>${expansions.map((e) => `<label class="check"><input type="checkbox" data-room="exp" value="${e.meta.id}" ${info.expansions.includes(e.meta.id) ? 'checked' : ''} ${info.expansions.length === 1 && info.expansions[0] === e.meta.id ? 'disabled' : ''}> ${esc(e.meta.name)}（${e.cards.length}種類）</label>`).join('')}</fieldset>
   </form>`;
 }
 
@@ -597,9 +601,9 @@ function poolHtml() {
   const originNames = Object.fromEntries(origins.map((o) => [o.id, o.name]));
   const cards = cat.deckIds.map((id) => cat.cards[id]);
   return `<div class="overlay"><div class="pool">
-    <div class="pool-head"><h2>このゲームのカード（各種類2枚）</h2><button data-act="pool-close">閉じる</button></div>
+    <div class="pool-head"><h2>このゲームのカード（各種類${copiesFor(cat)}枚）</h2><button data-act="pool-close">閉じる</button></div>
     ${filterHtml(origins, poolState)}
-    ${listHtml(cards, poolState, { originNames, left: leftCounts(cat, st), copies: 2 })}
+    ${listHtml(cards, poolState, { originNames, left: leftCounts(cat, st, copiesFor(cat)), copies: copiesFor(cat) })}
   </div></div>`;
 }
 
@@ -607,7 +611,8 @@ app.addEventListener('change', (ev) => {
   const k = ev.target.dataset.room; // 部屋のゲームセット（ホストだけ）
   if (k && room instanceof HostRoom) {
     if (k === 'exp') {
-      const ids = expansions.map((e) => e.meta.id).filter((id) => id === 'base' || app.querySelector(`[data-room="exp"][value="${id}"]`)?.checked);
+      const ids = expansions.map((e) => e.meta.id).filter((id) => app.querySelector(`[data-room="exp"][value="${id}"]`)?.checked);
+      if (!ids.length) return render(); // 少なくとも1つ
       room.setSettings({ expansions: ids, versions: versionsOf(ids) });
     } else room.setSettings({ [k]: Number(ev.target.value) });
     return;

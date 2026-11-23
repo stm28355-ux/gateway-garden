@@ -134,7 +134,10 @@ export function pickOrder(st) {
   return Array.from({ length: n }, (_, k) => (st.firstPlayer + k) % n);
 }
 
-export function createGame(cat, { players, rounds = 8, seed = 1, copies = 2 }) {
+// 1種類あたりの枚数：ふつうは2枚。山が60枚に届かない世界の組み合わせ（拡張だけで遊ぶときなど）は増やす（工程8：拡張だけの4人戦で山が尽きた）
+export const copiesFor = (cat) => Math.max(2, Math.ceil(60 / cat.deckIds.length));
+
+export function createGame(cat, { players, rounds = 8, seed = 1, copies = copiesFor(cat) }) {
   if (players.length < 2 || players.length > 4) fail('2〜4人で遊ぶ');
   const st = {
     rng: seed | 0, round: 1, rounds, phase: 'draft', turn: 0, firstPlayer: 0, uidNext: 1,

@@ -88,11 +88,11 @@ const DRAW = {
     return g.px1(16, 16, C.goldLight).outline(INK);
   },
 
-  // 世界の交わり：違う世界のカード6枚が並び、つなぎ目5か所が光る（門でつながる）
+  // 世界の交わり：違う世界のカード8枚が並び、つなぎ目7か所が光る（門でつながる）
   'world-cross': () => {
     const g = grid().ellipse(16, 9, 9, 7, C.purple).ellipse(16, 10, 6, 5, null).clear(0, 11, 31, 31);
-    for (let i = 0; i < 6; i++) card(g, 1 + i * 5, 14, 5 + i * 5, 26, C.gold).rect(2 + i * 5, 16, 4 + i * 5, 24, i % 2 ? '#f6b26b' : C.sky);
-    for (let i = 1; i < 6; i++) g.px1(1 + i * 5, 12, C.goldLight).px1(1 + i * 5, 28, C.goldLight);
+    for (let i = 0; i < 8; i++) card(g, i * 4, 14, 3 + i * 4, 26, C.gold).rect(1 + i * 4, 16, 2 + i * 4, 24, i % 2 ? '#f6b26b' : C.sky);
+    for (let i = 1; i < 8; i++) g.px1(i * 4, 12, C.goldLight).px1(i * 4, 28, C.goldLight);
     return g.outline(INK);
   },
 

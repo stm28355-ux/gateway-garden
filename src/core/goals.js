@@ -57,14 +57,14 @@ export const GOALS = {
   },
   // 拡張を混ぜたゲームだけに出る（出身が2種類以上のとき）
   'world-cross': {
-    name: '世界の交わり', text: '違う世界のカードどうしが隣り合う所が5か所', needsOrigins: 2,
+    name: '世界の交わり', text: '違う世界のカードどうしが隣り合う所が7か所', needsOrigins: 2,
     check: (cat, g) => {
       let n = 0;
       g.forEach((x, i) => {
         if (!x) return;
         for (const j of adjacent(i)) if (j > i && g[j] && defOf(cat, g[j]).origin !== defOf(cat, x).origin) n++;
       });
-      return n >= 5;
+      return n >= 7; // 工程8 R2：拡張を増やして同時に使うことも考えて 3 → 5 → 7
     },
   },
 };
@@ -107,7 +107,7 @@ const PROGRESS = {
       if (!x) return;
       for (const j of adjacent(i)) if (j > i && g[j] && defOf(cat, g[j]).origin !== defOf(cat, x).origin) n++;
     });
-    return Math.min(1, n / 5);
+    return Math.min(1, n / 7);
   },
 };
 export const goalProgress = (cat, id, garden) => (GOALS[id].check(cat, garden) ? 1 : (PROGRESS[id]?.(cat, garden) ?? 0));

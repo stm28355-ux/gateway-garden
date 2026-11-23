@@ -26,7 +26,10 @@ const rounds = Number(args[2] ?? 8);
 
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 // 使う拡張：--exp base,auto-battler（基本セットは必ず入る）
-const expIds = [...new Set(['base', ...(opt('--exp') ?? 'base').split(',').map((s) => s.trim()).filter(Boolean)])];
+// --sets：使う世界をそのまま指定（基本セットなしも試せる。例：--sets auto-battler-1）
+const setsOpt = opt('--sets');
+const expIds = setsOpt ? setsOpt.split(',').map((x) => x.trim()).filter(Boolean)
+  : [...new Set(['base', ...(opt('--exp') ?? 'base').split(',').map((x) => x.trim()).filter(Boolean)])];
 const exps = expIds.map((id) => ({ meta: read(`../expansions/${id}/expansion.json`), cards: read(`../expansions/${id}/cards.json`) }));
 // 試しの直し：--patch tools/patches/xxx.mjs（札の名前 → 直す関数 の並びを export default）。カードのデータは書き換えずに測る（工程8）
 const patchPath = opt('--patch');
