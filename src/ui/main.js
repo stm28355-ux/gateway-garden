@@ -72,6 +72,8 @@ async function loadExpansions() {
 }
 
 const worldName = (id) => expansions.find((e) => e.meta.id === id)?.meta.name ?? id; // 画面では拡張を「世界」と呼ぶ
+// カードの上では世界を2文字くらいの略で出す（工程9 D5。全文はカードの説明に出す）
+const worldShort = (id) => expansions.find((e) => e.meta.id === id)?.meta.short ?? worldName(id).slice(0, 2);
 const makeCatalog = (ids) => buildCatalog(expansions.filter((e) => ids.includes(e.meta.id)));
 // 使う世界（基本セットも外せる。少なくとも1つ。工程8：拡張だけで遊べるように）
 const chosenExpansions = () => expansions.filter((e) => document.querySelector(`input[name="exp"][value="${e.meta.id}"]`)?.checked).map((e) => e.meta.id);
@@ -281,11 +283,10 @@ function cardHtml(c, { stage = null, attrs = '', cls = '', showCost = false, cos
   return `<div class="card ${d.element} ${cls}" data-card="${c.id}" data-stage="${s}" ${attrs}>
     <div class="card-top"><span class="name ${nameCls(d.name)}">${esc(d.name)}</span>${stage ? `<span class="pips">${stars(stage)}</span>` : ''}</div>
     <div class="card-art">${artHtml(d, 48)}</div>
-    <div class="card-mid">${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}${pts ? `・${pts}点` : ''}</div>
+    <div class="card-mid">${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}${pts ? `・${pts}点` : ''}${d.origin !== 'base' ? `<span class="world-tag" title="${esc(worldName(d.origin))}">${esc(worldShort(d.origin))}</span>` : ''}</div>
     <div class="card-text ${plain.length > 34 ? 'long' : ''}">${lines.join('<br>')}</div>
     ${showCost ? `<div class="card-cost">${costGems(d.cost)}</div>` : ''}
     ${cost !== null ? `<div class="card-cost">育てる ${manaDot(d.element, '', 14)}${cost}</div>` : ''}
-    ${d.origin !== 'base' ? `<div class="card-world">${esc(worldName(d.origin))}</div>` : ''}
   </div>`;
 }
 
@@ -393,11 +394,25 @@ function gardenHtml(p, mini = false) {
     const attrs = p === ME ? `data-act="cell" data-cell="${i}"` : '';
     if (!x) return `<div class="cell empty ${cls}" ${attrs}><small>${i + 1}</small></div>`;
     const cost = p === ME && !mini && x.stage < 3 ? growCost(cat, pl, i) : null;
-    return `<div class="cell ${cls}" ${attrs}>${mini ? `<div class="mini-card ${defById(x.id).element}" data-card="${x.id}" data-stage="${x.stage}" title="${esc(defById(x.id).name)}">${artHtml(defById(x.id), 28)}<b>${stars(x.stage)}</b></div>` : cardHtml(x, { stage: x.stage, cost })}</div>`;
+    return `<div class="cell ${cls}" ${attrs}>${p === ME && !mini && ui.cell === i ? cellBar(pl, i) : ''}${mini ? `<div class="mini-card ${defById(x.id).element}" data-card="${x.id}" data-stage="${x.stage}" title="${esc(defById(x.id).name)}">${artHtml(defById(x.id), 28)}<b>${stars(x.stage)}</b></div>` : cardHtml(x, { stage: x.stage, cost })}</div>`;
   }).join('')}</div>`;
 }
 
-// 自分のすること（右下の欄）
+// 選んだ庭のカードの下の方に、育てる・手入れのボタンを重ねて出す（工程9 D2。前は約560px 先の「あなたのすること」）
+function cellBar(pl, i) {
+  if (st.phase !== 'react' || pl.status !== 'acting' || pl.choice) return '';
+  const x = pl.garden[i];
+  const d = defById(x.id);
+  const cost = x.stage < 3 ? growCost(cat, pl, i) : null;
+  const hasUse = d.stages[x.stage - 1].effects.some((e) => e.when === 'use');
+  if (cost === null && !hasUse) return '';
+  return `<div class="cell-bar">
+    ${cost !== null ? `<button class="primary" data-act="grow" ${pl.mana[d.element] >= cost ? '' : 'disabled title="魔素が足りない"'}>育てる ${manaDot(d.element, '', 14)}${cost}</button>` : ''}
+    ${hasUse ? `<button data-act="use" ${pl.used.includes(x.uid) ? 'disabled title="このラウンドはもう使った"' : ''}>手入れ</button>` : ''}
+  </div>`;
+}
+
+// 自分のすること
 function actionPanel() {
   const pl = st.players[ME];
   if (st.phase === 'end') return '';
@@ -412,36 +427,44 @@ function actionPanel() {
     ? `<p class="muted">手元のカード（手入れフェーズで置く）：${pl.pending.map((c) => `<span data-card="${c.id}" data-stage="1">「${esc(defById(c.id).name)}」</span>`).join('')}</p>` : '';
   if (st.phase === 'pick') {
     if (!myPickTurn()) return `<p class="muted">${esc(nameOf(pickOrder(st)[st.turn]))} が摘んでいます…（場を見て次の手を考えられます）</p>${waiting}`;
-    return `<p><b>あなたの番</b>：上の「摘む」の欄で、束とカードを選んで摘みます。</p>${waiting}`;
+    return pickPanel(waiting);
   }
   return reactPanel(pl);
 }
 
-// 「摘む」の欄（ui.md の 6：摘むボタンを場のカードのすぐ横に）。自分の番のときだけ選ぶ所を出す
-function pickBoxHtml() {
+// 入れ替えの導きは、束の欄の中で使う（工程9 D4：束のそば）
+function swapHtml() {
+  if (!myPickTurn()) return '';
   const pl = st.players[ME];
-  if (st.phase === 'draft') return myDraftTurn() ? '<p>始まりのカードを、場から1枚招いてください（無料）。</p>' : `<p class="muted">${esc(nameOf(st.draftOrder[st.turn]))} が始まりのカードを選んでいます…</p>`;
-  if (st.phase !== 'pick') return `<p class="muted">手入れフェーズです。次のラウンドは ${esc(nameOf((st.firstPlayer + 1) % st.players.length))} から摘みます。</p>`;
+  const swaps = bendCells('swap');
+  if (!swaps.length) return '';
+  const names = swaps.map((c) => esc(defById(pl.garden[c].id).name)).join('・');
+  let body;
+  if (ui.bundle === null) body = '<span class="muted">束を選ぶと使える</span>';
+  else if (ui.swap) body = `束${ui.bundle + 1}の${ui.swap.give + 1}番目 ⇔ 束${ui.swap.other + 1}の${ui.swap.otherIdx + 1}番目 <button data-act="swap-clear">やめる</button>`;
+  else if (ui.swapCell === null) body = `<button data-act="swap-start" data-cell="${swaps[0]}">入れ替える</button>`;
+  else body = ui.give === null ? '選んだ束の、替えたい魔素を押す' : '替える相手（別の束）の魔素を押す';
+  return `<div class="swap-box"><small>入れ替え（${names}）</small><div>${body}</div></div>`;
+}
+
+// 採集フェーズの自分の番：払いと摘むボタン（工程9 D4：「あなたのすること」に戻し、ボタンは欄の下に固定）
+function pickPanel(waiting) {
+  const pl = st.players[ME];
   {
-    if (!myPickTurn()) return `<p class="muted">${esc(nameOf(pickOrder(st)[st.turn]))} が摘んでいます…</p>`;
     const pv = pickPreview();
-    const swaps = bendCells('swap');
-    const swapUi = swaps.length && ui.bundle !== null
-      ? `<p>入れ替え（${swaps.map((c) => esc(defById(pl.garden[c].id).name)).join('・')}）：${ui.swap ? `束${ui.bundle + 1}の${ui.swap.give + 1}番目 ⇔ 束${ui.swap.other + 1}の${ui.swap.otherIdx + 1}番目 <button data-act="swap-clear">やめる</button>` : (ui.swapCell === null ? `<button data-act="swap-start" data-cell="${swaps[0]}">使う</button>` : (ui.give === null ? '摘む束の、替えたい魔素を押す' : '替える相手（別の束）の魔素を押す'))}</p>` : '';
     const adds = bendCells('add');
     const buyLines = (pv?.lines ?? []).map(({ k, card, cost, anyN }) => {
       const fixed = ELEMENTS.filter((c) => cost[c]).map((c) => `${COLOR_JA[c]}${cost[c]}`).join('・');
       const chips = anyN ? `　好きな色の払い：${(ui.anyPick[k] ?? []).map((c, j) => `<button class="chip" data-act="anychip" data-k="${k}" data-j="${j}" title="押すと色が変わる">${manaDot(c)}</button>`).join('')}` : '';
       return `<p>${k + 1}枚目「${esc(defById(card.id).name)}」：${fixed || '―'}${anyN ? `${fixed ? '・' : ''}好きな色${anyN}` : ''}${chips}</p>`;
     }).join('');
-    return `<p><b>あなたの番</b>：束を1つ選ぶ。招くなら場のカードを2枚まで（2枚目は好きな色1が足される）。</p>
+    return `<div class="panel-body"><p><b>あなたの番</b>：上の束を1つ選ぶ。招くなら場のカードを2枚まで（2枚目は好きな色1が足される）。</p>${waiting}
       ${adds.length ? `<p class="muted">足す（${adds.map((c) => esc(defById(pl.garden[c].id).name)).join('・')}）は自動で使います。</p>` : ''}
-      ${swapUi}
       ${buyLines}
       ${pv?.mana ? `<p>摘んで払った後：${manaRow(pv.mana)}</p>` : ''}
-      ${pv?.error ? `<p class="error">${esc(pv.error)}</p>` : ''}
-      <button class="primary" data-act="pick" ${pv?.action && !pv.error ? '' : 'disabled'}>摘む${ui.markets.length ? `（カード${ui.markets.length}枚も招く）` : ''}</button>
-      ${ui.markets.length ? '<button data-act="unbuy">カードは招かない</button>' : ''}`;
+      ${pv?.error ? `<p class="error">${esc(pv.error)}</p>` : ''}</div>
+      <div class="panel-foot"><button class="primary" data-act="pick" ${pv?.action && !pv.error ? '' : 'disabled title="束を選ぶと押せる"'}>摘む${ui.markets.length ? `（カード${ui.markets.length}枚も招く）` : ''}</button>
+      ${ui.markets.length ? '<button data-act="unbuy">カードは招かない</button>' : ''}</div>`;
   }
 }
 
@@ -449,20 +472,11 @@ function pickBoxHtml() {
 function reactPanel(pl) {
   if (st.phase === 'react') {
     if (pl.status === 'done') return '<p class="muted">このラウンドは終えました。ほかの人を待っています…</p>';
-    const pend = pl.pending.map((c, i) => cardHtml(c, { cls: `can ${ui.pending === i ? 'sel' : ''}`, attrs: `data-act="pending" data-i="${i}"` })).join('');
-    let sel = '';
-    if (ui.cell !== null && pl.garden[ui.cell]) {
-      const x = pl.garden[ui.cell];
-      const d = defById(x.id);
-      const cost = x.stage < 3 ? growCost(cat, pl, ui.cell) : null;
-      const hasUse = d.stages[x.stage - 1].effects.some((e) => e.when === 'use');
-      sel = `<p>「${esc(d.name)}」：
-        ${cost !== null ? `<button class="primary" data-act="grow" ${pl.mana[d.element] >= cost ? '' : 'disabled'}>育てる（${COLOR_JA[d.element]}${cost}）</button>` : '★★★です'}
-        ${hasUse ? `<button data-act="use" ${pl.used.includes(x.uid) ? 'disabled' : ''}>手入れ</button>` : ''}</p>`;
-    }
+    const pend = pl.pending.map((c, i) => cardHtml(c, { cls: `can ${ui.pending === i ? 'sel' : ''}`, attrs: `data-act="pending" data-i="${i}" draggable="true" data-drag="${i}"` })).join('');
+    const sel = ui.cell !== null && pl.garden[ui.cell] && !cellBar(pl, ui.cell) ? `<p class="muted">「${esc(defById(pl.garden[ui.cell].id).name)}」は★★★です。</p>` : '';
     const over = pl.pending.length > HAND_LIMIT;
-    return `<div class="panel-body">${pend ? `<p><b>手元のカード</b>：カードを選んで、庭の空いたマスを押すと置く${pl.garden.every(Boolean) ? '（庭が埋まっているので置き換え）' : ''}。置かずに${HAND_LIMIT}枚まで持っておける。</p><div class="row">${pend}</div>` : ''}
-      <p>庭のカードを押すと、育てる・手入れができます（同じカードを素早く2回押すと、すぐ育てる）。</p>${sel}
+    return `<div class="panel-body">${pend ? `<p><b>手元のカード</b>：庭の${pl.garden.every(Boolean) ? 'マスへ（庭が埋まっているので置き換え）' : '空いたマスへ'}ドラッグして置く（押して選び、マスを押しても置ける）。置かずに${HAND_LIMIT}枚まで持っておける。</p><div class="row">${pend}</div>` : ''}
+      <p>庭のカードを押すと、カードの下に育てる・手入れのボタンが出ます（同じカードを素早く2回押しても育つ）。</p>${sel}
       ${over ? `<p class="error">手元のカードが${HAND_LIMIT}枚を超えています。置いてから終えてください。</p>` : ''}</div>
       <div class="panel-foot"><button class="primary" data-act="done" ${over ? 'disabled' : ''}>このラウンドを終える（開花）</button>
       <button data-act="undo" ${pl.history?.length ? '' : 'disabled'}>1つ戻す</button></div>`;
@@ -570,15 +584,17 @@ function endButtons() {
   return '<button class="primary" data-act="again">セットを選び直す</button>';
 }
 
+let dragging = false; // 手元のカードを運んでいる間は描き直さない（運んでいるカードが消えないように）
+let renderLater = false;
+
 function render() {
+  if (dragging) { renderLater = true; return; }
   if (screen === 'setup') return renderSetup();
   if (screen === 'lobby') return renderLobby();
   st = session.view();
   ME = session.me;
   if (!st) return renderLobby();
   const pl = st.players[ME];
-  // 手元のカードが1枚だけなら、はじめから選んでおく（ui.md の 2：置くのが1手）。庭が埋まっているとき（置き換え）は選ばない
-  if (st.phase === 'react' && pl.status === 'acting' && !pl.choice && pl.pending.length === 1 && ui.pending === null && !ui.pendingOff && !pl.garden.every(Boolean)) ui.pending = 0;
   const me = scoreOf(cat, st, ME);
   const lost = session.problem ? `<p class="error banner">${esc(session.problem)}</p>` : '';
   const shownError = error || session.error || '';
@@ -592,9 +608,8 @@ function render() {
   ${lost}
   <main class="table">
     <div class="row-top">
-      <section class="sec a-bundles"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div></section>
+      <section class="sec a-bundles"><h2 class="sec-title">束（摘む）</h2><div class="bundles">${bundlesHtml()}</div>${swapHtml()}</section>
       <section class="sec a-market"><h2 class="sec-title">場のカード（招く）</h2><div class="market">${marketHtml()}</div></section>
-      <section class="sec a-pick"><h2 class="sec-title">摘む</h2><div class="panel">${pickBoxHtml()}</div></section>
     </div>
     <div class="row-bottom">
       <section class="sec a-goals"><h2 class="sec-title">お題カード</h2><div class="goals">${goalsHtml()}</div></section>
@@ -603,10 +618,7 @@ function render() {
         <div class="me-head"><span class="me-score">${me.total}点（★${me.stage}・実り${me.end}・お題${me.goals}）</span><span class="mana big">${manaRow(pl.mana)}<span class="muted">上限 ${limitOf(cat, pl)}・合計 ${manaTotal(pl.mana)}</span></span></div>
         <div class="board-slab">${gardenHtml(ME)}</div>
       </section>
-      <div class="col-side">
-        <section class="sec a-action"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
-        <section class="sec a-detail"><h2 class="sec-title">カードの説明</h2><div class="detail-box">${detailHtml()}</div></section>
-      </div>
+      <section class="sec a-action"><h2 class="sec-title">あなたのすること</h2><div class="panel">${shownError ? `<p class="error">${esc(shownError)}</p>` : ''}${actionPanel()}</div></section>
     </div>
   </main>
   <nav class="sidetabs">
@@ -647,16 +659,64 @@ app.addEventListener('change', (ev) => {
   if (poolOpen && ev.target.dataset.filter) { toggleFilter(poolState, ev.target); render(); }
 });
 
+// ---- 手元のカードを庭へ運ぶ（工程9 D3：ドラッグ＆ドロップ） -------------------------
+app.addEventListener('dragstart', (ev) => {
+  const el = ev.target.closest?.('[data-drag]');
+  if (!el || !st || st.phase !== 'react') return;
+  ev.dataTransfer.setData('text/plain', el.dataset.drag);
+  ev.dataTransfer.effectAllowed = 'move';
+  dragging = true;
+  tip.hidden = true;
+  app.classList.add('dragging');
+  if (st.players[ME].garden.every(Boolean)) app.classList.add('dragging-full');
+});
+app.addEventListener('dragover', (ev) => {
+  const cell = ev.target.closest?.('.a-garden [data-act="cell"]');
+  if (!dragging || !cell) return;
+  if (!st.players[ME].garden.every(Boolean) && !cell.classList.contains('empty')) return;
+  ev.preventDefault();
+  for (const c of app.querySelectorAll('.drop-over')) if (c !== cell) c.classList.remove('drop-over');
+  cell.classList.add('drop-over');
+});
+app.addEventListener('drop', (ev) => {
+  const cell = ev.target.closest?.('.a-garden [data-act="cell"]');
+  if (!dragging || !cell) return;
+  ev.preventDefault();
+  const i = Number(ev.dataTransfer.getData('text/plain'));
+  endDrag();
+  act({ type: 'place', player: ME, pending: i, cell: Number(cell.dataset.cell) });
+});
+app.addEventListener('dragend', () => endDrag());
+function endDrag() {
+  if (!dragging) return;
+  dragging = false;
+  app.classList.remove('dragging', 'dragging-full');
+  if (renderLater) { renderLater = false; render(); }
+}
+
 // ---- 押したとき ---------------------------------------------------------------
 
-app.addEventListener('mouseover', (ev) => {
-  const el = ev.target.closest('[data-card]');
-  if (!el || !st) return;
-  const h = { id: el.dataset.card, stage: Number(el.dataset.stage) };
-  if (hover?.id === h.id && hover.stage === h.stage) return;
-  hover = h;
-  const box = app.querySelector('.detail-box');
-  if (box) box.innerHTML = detailHtml();
+// カードの説明は、マウスを乗せたカードのすぐ横に出す（工程9 D1。前は右下の欄で、庭から約1000px 離れていた）。
+// 画面の描き直しで消えないよう、#app の外に置く
+const tip = document.createElement('div');
+tip.className = 'card-tip';
+tip.hidden = true;
+document.body.append(tip);
+function showTip(el) {
+  tip.innerHTML = detailHtml();
+  tip.hidden = false;
+  const r = (el.closest('.card, .mini-card, .fullcard') ?? el).getBoundingClientRect();
+  const w = tip.offsetWidth;
+  const h = tip.offsetHeight;
+  const right = r.right + 8 + w <= window.innerWidth;
+  tip.style.left = `${right ? r.right + 8 : Math.max(8, r.left - 8 - w)}px`;
+  tip.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - h - 8))}px`;
+}
+document.addEventListener('mouseover', (ev) => {
+  const el = ev.target.closest?.('[data-card]');
+  if (!el || !st || screen !== 'game' || dragging) { if (!el) tip.hidden = true; return; }
+  hover = { id: el.dataset.card, stage: Number(el.dataset.stage) };
+  showTip(el);
 });
 
 function backToSetup() {

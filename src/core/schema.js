@@ -120,6 +120,7 @@ export function validateExpansion(dirName, meta, cards) {
   const err = (msg) => errors.push(`${dirName}: ${msg}`);
   if (meta.id !== dirName) err(`expansion.json の id "${meta.id}" がフォルダ名と違う`);
   if (typeof meta.name !== 'string' || !meta.name) err('expansion.json に name がない');
+  if (meta.short !== undefined && (typeof meta.short !== 'string' || !meta.short || [...meta.short].length > 3)) err('expansion.json の short（カードの上に出す世界の略）は3文字まで');
   if (!/^\d+\.\d+\.\d+$/.test(meta.version ?? '')) err('expansion.json の version は 1.2.3 の形にする');
   if (!Array.isArray(cards)) { err('cards.json は配列にする'); return errors; }
   const seen = new Set();
