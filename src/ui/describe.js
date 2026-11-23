@@ -28,11 +28,10 @@ export const TERMS = {
   add: { word: 'おかわり', help: '摘んだ束にこのカードの色があれば、その色をもう1つ' },
   gain: { word: '産出', help: '魔素を、その数だけ得る（色が書いてあればその色、なければ好きな色）' },
   convert: { word: '変性', help: '手持ちの魔素を、決めた数まで好きな色に変える（色が書いてあればその色に）' },
-  remove: { word: '溶解', help: '範囲のカード1枚まで（選ぶ）を庭から取り除き、捨て札にする' },
+  remove: { word: '溶解', help: '範囲のカード1枚まで（選ぶ）を庭から取り除き、捨て札にする。（ ）の中は、溶かしたカードの★ごとに得るもの。このカードを育てるときは、★★★を超える分は1つにつき1点' },
   copy: { word: '複製', help: 'カード1枚の写し（同じカード）を、手元のカードに加える。1ラウンドに1枚まで' },
   connected: { word: '連なり', help: 'このカードから上下左右に、条件に合うカードでつながっている全部' },
   evolve: { word: '進化', help: 'このカードを、決まった別のカードに替える。★は★1に戻る' },
-  fuse: { word: '融合', help: '範囲のカード1枚まで選んで溶かし、溶かしたカードの★の数だけ、このカードを育てる。★★★を超える分は1つにつき1点' },
 };
 
 let explain = false; // 「説明も書く」
@@ -93,9 +92,9 @@ function body(e, def, html) {
       const w = html ? kwHtml(TERMS.evolve) : '進化';
       return `「${CARD_NAMES[e.into] ?? e.into}」に${w}${e.amount ? `、${e.amount}点` : ''}`;
     }
-    case 'fuse': {
-      const w = html ? kwHtml(TERMS.fuse) : '融合';
-      return `${target(e.area, e.filter, html)}1枚まで${w}`;
+    case 'fuse': { // 工程の判定 U1 案A：「融合」の言葉はやめ、溶解の書き方にそろえる
+      const w = html ? kwHtml(TERMS.remove) : '溶解';
+      return `${target(e.area, e.filter, html)}1枚まで${w}（その★ごとに、このカードを★1つ育てる）`;
     }
     case 'copy': {
       const w = html ? kwHtml(TERMS.copy) : '複製';
