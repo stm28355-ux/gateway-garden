@@ -4,6 +4,7 @@ Gateway Garden の「世界」は、ほかのゲームから来た住人のカ�
 
 - 遊ぶ：https://stm28355-ux.github.io/gateway-garden/ （右のふちの「遊び方」にルールとゲームの流れの図）
 - カードの一覧：https://stm28355-ux.github.io/gateway-garden/cards.html （今あるカードと、効果の書き方の見本）
+- お題の一覧：https://stm28355-ux.github.io/gateway-garden/goals.html （今あるお題。拡張のお題は expansion.json の goals）
 
 ## 1. 出し方は2つ
 

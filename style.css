@@ -240,6 +240,9 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
 .fc-left { color: var(--gold-hi); font-weight: 700; } .fc-left.none { color: var(--muted); }
 .fc-meta { color: var(--muted); }
 .fc-stage { margin-top: 4px; padding-top: 4px; border-top: 1px dashed var(--line); clear: right; }
+.goalcard .gc-text { clear: none; font-size: 13px; min-height: 48px; }
+.goalcard .fc-meta { clear: right; margin-top: 4px; }
+.gl-head { font-family: "Shippori Mincho", serif; color: var(--gold-hi); font-size: 17px; margin: 14px 0 6px; }
 .pool { background: var(--panel-solid); border: 1px solid var(--gold); border-radius: 12px; padding: 12px 16px; width: min(1200px, 94vw); max-height: 88vh; overflow: auto; }
 .pool-head { display: flex; justify-content: space-between; align-items: center; }
 

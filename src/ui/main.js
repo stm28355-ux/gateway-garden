@@ -114,7 +114,7 @@ function renderSetup() {
     </form>
     ${mode !== 'solo' ? '<p class="muted">通信対戦はサーバーなしで、ブラウザ同士を直接つなぎます。同じ合言葉を入れた人が同じ部屋に入ります。</p>' : ''}
     <details class="rules"><summary>遊び方（ゲームの流れの図とルール）</summary>${rulesHtml()}</details>
-    <p class="muted small">版 ${APP_VERSION}・<a href="cards.html">カードの一覧</a></p>
+    <p class="muted small">版 ${APP_VERSION}・<a href="cards.html">カードの一覧</a>・<a href="goals.html">お題の一覧</a></p>
   </main>`;
   for (const b of app.querySelectorAll('[data-mode]')) b.addEventListener('click', () => { mode = b.dataset.mode; renderSetup(); });
   document.getElementById('setup').addEventListener('submit', (ev) => {
