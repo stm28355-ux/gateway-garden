@@ -17,7 +17,8 @@ const ALWAYS_ONLY = ['discount', 'limit'];
 
 // 範囲（どこ）。向きは入れない（D11）。
 // connected（連なり）：このカードから上下左右に、条件に合うカードでつながっている全部（拡張 Celestial Alchemy で足した）
-export const AREAS = ['self', 'adjacent', 'row', 'column', 'cross', 'garden', 'connected']; // 自分・上下左右・同じ行・同じ列・行と列・庭ぜんぶ・連なり
+// diagonal（斜めの4マス）：拡張 Arc-en-ciel Creator で足した
+export const AREAS = ['self', 'adjacent', 'row', 'column', 'cross', 'garden', 'connected', 'diagonal']; // 自分・上下左右・同じ行・同じ列・行と列・庭ぜんぶ・連なり・斜め
 export const POSITIONS = ['center', 'corner', 'edge']; // 中央・角・辺
 
 // 拾い方の曲げ方（D12）。基本セットは add と swap。
@@ -37,8 +38,10 @@ export const ACTIONS = {
   bend: ['kind'],                   // 拾い方を曲げる（when: 'pick' だけ）
   remove: ['amount'],               // 溶解：範囲のカード1枚まで（選ぶ。area が self なら選ばずにこのカード）を庭から取り除く。amount（なくてもよい）があれば、そのカードの★ごとにその色を amount 個得る
   copy: [],                         // 複製：範囲（なければこのカード）の1枚の写しを、手元のカードに加える（1人1ラウンドに1枚まで）
+  evolve: ['into', 'amount'],       // 進化：このカードを into のカード（同じ世界）に替える。★1に戻る。amount（なくてもよい）点を得る
+  fuse: [],                         // 融合：範囲のカード1枚まで（選ぶ）を溶かし、そのカードの★の数だけこのカードを育てる
 };
-const OPTIONAL_AMOUNT = ['remove'];
+const OPTIONAL_AMOUNT = ['remove', 'evolve'];
 
 // 各部品に付けられる共通の項目
 const COMMON = ['when', 'do', 'area', 'filter', 'per', 'if', 'at'];
@@ -87,7 +90,8 @@ export function validateEffect(e, where, ctx, err) {
   }
   if (e.when === 'grow' && ctx.stage === 1) err(`${where}: 段階1の「その段階になったとき」は起きない`);
   if (e.area !== undefined && !AREAS.includes(e.area)) err(`${where}: area が正しくない`);
-  if (['stageUp', 'discount', 'trigger', 'move', 'remove'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);
+  if (e.do === 'evolve' && typeof e.into !== 'string') err(`${where}: evolve には into（進化先のカードの id）が要る`);
+  if (['stageUp', 'discount', 'trigger', 'move', 'remove', 'fuse'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);
   checkFilter(e.filter, `${where}.filter`, err);
   checkCount(e.per, `${where}.per`, err, false);
   checkCount(e.if, `${where}.if`, err, true);
@@ -98,6 +102,7 @@ export function validateCard(c, prefix, err) {
   const at = `札「${c?.id ?? 'id なし'}」`;
   if (!c?.id?.startsWith(`${prefix}-`)) err(`${at}: id は "${prefix}-" で始める`);
   if (!c.name) err(`${at}: name がない`);
+  if (c.evolveOnly !== undefined && typeof c.evolveOnly !== 'boolean') err(`${at}: evolveOnly は true か false`);
   if (!ELEMENTS.includes(c.element)) err(`${at}: element は ${ELEMENTS.join('・')} のどれか`);
   if (!ROLES.includes(c.role)) err(`${at}: role は ${ROLES.join('・')} のどれか`);
   if (!GROWTH[c.growth]) err(`${at}: growth は ${Object.keys(GROWTH).join('・')} のどれか`);
@@ -133,6 +138,10 @@ export function validateExpansion(dirName, meta, cards) {
     if (seen.has(c?.id)) err(`札「${c.id}」: id が重なっている`);
     seen.add(c?.id);
     validateCard(c, dirName, err);
+  }
+  // 進化先は同じ世界のカード
+  for (const c of cards) for (const s of c.stages ?? []) for (const e of s.effects ?? []) {
+    if (e.do === 'evolve' && !seen.has(e.into)) err(`札「${c.id}」: 進化先 "${e.into}" がこの世界にない`);
   }
   return errors;
 }

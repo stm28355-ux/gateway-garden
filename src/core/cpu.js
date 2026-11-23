@@ -154,6 +154,17 @@ export function chooseValue(cat, st, p) {
       }
       return pickCell;
     }
+    case 'fuse': {
+      let pickCell = null;
+      let bestV = valueOf(cat, st, p);
+      for (const c of ch.options) {
+        const s = clone(st);
+        try { applyMut(cat, s, { type: 'choose', player: p, value: c }); settle(cat, s, p); } catch { continue; }
+        const v = valueOf(cat, s, p);
+        if (v > bestV + 1e-9) { bestV = v; pickCell = c; }
+      }
+      return pickCell;
+    }
     case 'copy': return best(ch.options, (c) => {
       const d = defOf(cat, pl.garden[c]);
       return d.stages.reduce((s, x) => s + (x.points ?? 0), 0);

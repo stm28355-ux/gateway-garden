@@ -71,6 +71,7 @@ Gateway Garden の「世界」は、ほかのゲームから来た住人のカ�
 | `role` | 役目：`generate` 生成・`guide` 導き・`boost` 強化・`convert` 変換・`score` 得点・`chain` 連鎖 |
 | `cost` | 招く値段。`{ "red": 2, "any": 1 }` のように色ごと（`any` は好きな色）。合計1〜4 |
 | `growth` | 上がり方：`early` 早熟（育てる魔素 1・3）・`flat` 平ら（2・3）・`late` 晩成（3・4）。育てるのはカードと同じ色の魔素 |
+| `evolveOnly` | （なくてもよい）`true` なら山に入れず、進化でだけ出るカードにする |
 | `stages` | ★・★★・★★★ の3つ。それぞれ `points`（その★の点。★★★は1以上）と `effects`（効果の部品の並び） |
 
 ### カードを考えるときの目安
@@ -88,8 +89,8 @@ Gateway Garden の「世界」は、ほかのゲームから来た住人のカ�
 | 項目 | 選べるもの |
 | --- | --- |
 | `when` | `place` 置いたとき・`activate` 毎ラウンドの終わり・`grow` その★に育ったとき（★★・★★★だけ）・`pick` 摘むとき（導きのカードの★★から）・`end` ゲームの終わりの点・`always` 置いてある間ずっと・`use` 手入れフェーズで好きなときに1ラウンド1回 |
-| `do` | `gain`（`color`,`amount`）魔素を得る・`convert`（`to`,`amount`）色を変える・`stageUp`（`amount`）範囲から1枚選んで★を育てる・`discount`（`amount`）育てる魔素を減らす（`always` だけ）・`score`（`amount`）点・`hoard`（`every`,`amount`）終わりに残った魔素 `every` 個につき `amount` 点（`end` だけ）・`limit`（`amount`）持てる魔素を増やす（`always` だけ）・`trigger` 範囲の当てはまるカードを全部呼応させる・`move` 範囲のカード1枚を庭の別のマスへ動かす・`bend`（`kind`）摘み方を曲げる・`remove`（`amount` はなくてもよい）範囲のカード1枚まで（選ぶ。`area` が `self` なら選ばずにこのカード）を庭から取り除く。`amount` があれば、そのカードの★ごとにその色の魔素を `amount` 個得る・`copy` 範囲（なければこのカード）の1枚の写しを、手元のカードに加える（1人1ラウンドに1枚まで） |
-| `area` | `self` このカード・`adjacent` 上下左右・`row` 同じ行・`column` 同じ列・`cross` 同じ行と列・`garden` 庭ぜんぶ・`connected` 連なり（このカードから上下左右に、`filter` に合うカードでつながっている全部） |
+| `do` | `gain`（`color`,`amount`）魔素を得る・`convert`（`to`,`amount`）色を変える・`stageUp`（`amount`）範囲から1枚選んで★を育てる・`discount`（`amount`）育てる魔素を減らす（`always` だけ）・`score`（`amount`）点・`hoard`（`every`,`amount`）終わりに残った魔素 `every` 個につき `amount` 点（`end` だけ）・`limit`（`amount`）持てる魔素を増やす（`always` だけ）・`trigger` 範囲の当てはまるカードを全部呼応させる・`move` 範囲のカード1枚を庭の別のマスへ動かす・`bend`（`kind`）摘み方を曲げる・`remove`（`amount` はなくてもよい）範囲のカード1枚まで（選ぶ。`area` が `self` なら選ばずにこのカード）を庭から取り除く。`amount` があれば、そのカードの★ごとにその色の魔素を `amount` 個得る・`copy` 範囲（なければこのカード）の1枚の写しを、手元のカードに加える（1人1ラウンドに1枚まで）・`evolve`（`into`、`amount` はなくてもよい）このカードを `into` のカード（同じ世界）に替える。★1に戻り、`amount` 点を得る・`fuse` 範囲のカード1枚まで（選ぶ）を溶かし、そのカードの★の数だけこのカードを育てる |
+| `area` | `self` このカード・`adjacent` 上下左右・`row` 同じ行・`column` 同じ列・`cross` 同じ行と列・`garden` 庭ぜんぶ・`connected` 連なり（このカードから上下左右に、`filter` に合うカードでつながっている全部）・`diagonal` 斜めの4マス |
 | `filter` | `element`（色。`self` で同じ色）・`role`・`minStage`（1〜3）・`origin`（`same` 同じ世界／`other` 違う世界）・`empty`（空きマス）・`position`（`center` 中央／`corner` 角／`edge` 辺） |
 | `per` | `{ "area", "filter" }`：当てはまるカードごとに `amount` 倍 |
 | `if` | `{ "area", "filter", "atLeast" }`：当てはまるカードが `atLeast` 枚以上なら |
@@ -119,6 +120,9 @@ Gateway Garden の「世界」は、ほかのゲームから来た住人のカ�
 | `do: remove` | 溶解 | 範囲のカード1枚まで（選ぶ）を庭から取り除き、捨て札にする |
 | `do: copy` | 複製 | カード1枚の写し（同じカード）を、手元のカードに加える。1ラウンドに1枚まで |
 | `area: connected` | 連なり | このカードから上下左右に、条件に合うカードでつながっている全部 |
+| `area: diagonal` | 斜め | 斜めの4マス |
+| `do: evolve` | 進化 | このカードを、決まった別のカードに替える。★は★1に戻る |
+| `do: fuse` | 融合 | 範囲のカード1枚まで選んで溶かし、溶かしたカードの★の数だけ、このカードを育てる |
 
 ほかの決まり：データの「段階」（`stages`）は画面では ★〜★★★。`per` は「〜ごとに」、同じ「いつ」の効果は1行にまとめて出る（開花：変性1、産出1）。拡張は画面では「世界」、目標札は「お題カード」。
 

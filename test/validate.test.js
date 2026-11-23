@@ -68,7 +68,7 @@ test('知らない部品・項目・範囲を見つける', () => {
   const bad = card({ stages: [
     { effects: [{ when: 'activate', do: 'fly', amount: 1 }] },
     { effects: [{ when: 'activate', do: 'gain', color: 'red', amount: 1, power: 9 }] },
-    { points: 1, effects: [{ when: 'grow', do: 'stageUp', amount: 1, area: 'diagonal' }] },
+    { points: 1, effects: [{ when: 'grow', do: 'stageUp', amount: 1, area: 'knight' }] },
   ] });
   assert.equal(validateExpansion('demo', meta, [bad]).length, 3);
 });

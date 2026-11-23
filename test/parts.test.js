@@ -140,3 +140,59 @@ test('自分を溶かす（area: self）は選ばずにすぐ。その前に書�
   assert.ok(def);
   assert.deepEqual(stageLines(def, 1), ['開花：このカードを溶解']);
 });
+
+// ---- 拡張 Arc-en-ciel Creator で足した部品：進化・融合・斜め ----
+const acExp = {
+  meta: { id: 'parts-ac', name: '部品の試し2', version: '0.1.0', authors: ['test'] },
+  cards: [
+    card(1, 'white', 'generate', [[], [], [{ when: 'use', do: 'evolve', into: 'parts-ac-2', amount: 2 }]]),
+    { ...card(2, 'white', 'score', [[], [], []]), evolveOnly: true },
+    card(3, 'red', 'boost', [[{ when: 'use', do: 'fuse', area: 'adjacent' }], [], []]),
+    card(4, 'blue', 'score', [[{ when: 'end', do: 'score', amount: 1, per: { area: 'diagonal' } }], [], []]),
+  ].map((c) => ({ ...c, id: c.id.replace('parts-test', 'parts-ac') })),
+};
+const cat2 = buildCatalog([base, acExp]);
+function reactState2(cards) {
+  const st = createGame(cat2, { players: [{ name: 'A' }, { name: 'B' }], seed: 7, firstPlayer: 0 });
+  st.phase = 'react';
+  st.players[0].status = 'acting';
+  let uid = 3000;
+  for (const [cell, id, stage = 1] of cards) st.players[0].garden[cell] = { uid: uid++, id, stage };
+  return st;
+}
+
+test('進化：決まったカードに替わり★1に戻る、点を得る。進化でだけ出るカードは山に入らない', () => {
+  assert.deepEqual(validateExpansion('parts-ac', acExp.meta, acExp.cards), []);
+  assert.ok(!cat2.deckIds.includes('parts-ac-2'));
+  const st = reactState2([[4, 'parts-ac-1', 3]]);
+  applyMut(cat2, st, { type: 'use', player: 0, cell: 4 });
+  assert.equal(st.players[0].garden[4].id, 'parts-ac-2');
+  assert.equal(st.players[0].garden[4].stage, 1);
+  assert.equal(st.players[0].bonus, 2);
+  assert.deepEqual(stageLines(cat2.cards['parts-ac-1'], 2), ['手入れ：「試し2」に進化、2点']);
+  const bad = validateExpansion('parts-ac', acExp.meta, [card(5, 'white', 'generate', [[{ when: 'use', do: 'evolve', into: 'nowhere' }], [], []])].map((c) => ({ ...c, id: 'parts-ac-5' })));
+  assert.ok(bad.some((e) => e.includes('進化先')));
+});
+
+test('融合：選んだカードを溶かし、その★の数だけこのカードを育てる（★★★まで）。しなくてもよい', () => {
+  const blue = byName(cat2, 'しずくクラゲ');
+  const st = reactState2([[4, 'parts-ac-3'], [1, blue, 2], [3, blue, 3]]);
+  applyMut(cat2, st, { type: 'use', player: 0, cell: 4 });
+  assert.deepEqual(st.players[0].choice.options, [1, 3]);
+  applyMut(cat2, st, { type: 'choose', player: 0, value: 1 });
+  assert.equal(st.players[0].garden[1], null);
+  assert.equal(st.players[0].garden[4].stage, 3);
+  const st2 = reactState2([[4, 'parts-ac-3'], [1, blue, 2]]);
+  applyMut(cat2, st2, { type: 'use', player: 0, cell: 4 });
+  applyMut(cat2, st2, { type: 'choose', player: 0, value: null });
+  assert.ok(st2.players[0].garden[1]);
+  assert.equal(st2.players[0].garden[4].stage, 1);
+  assert.deepEqual(stageLines(cat2.cards['parts-ac-3'], 0), ['手入れ：隣のカード1枚まで融合']);
+});
+
+test('斜め：斜めの4マス（角は1マス、辺は2マス）', () => {
+  const blue = byName(cat2, 'しずくクラゲ');
+  const st = reactState2([[4, 'parts-ac-4'], [0, blue], [2, blue], [6, blue], [8, blue], [1, blue]]);
+  assert.equal(countIn(cat2, st.players[0], 4, { area: 'diagonal' }), 4);
+  assert.equal(countIn(cat2, st.players[0], 0, { area: 'diagonal' }), 1); // 角（0）の斜めは中央（4）だけ
+});

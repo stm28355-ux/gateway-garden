@@ -25,6 +25,7 @@ export function areaCells(area, i) {
     case 'row': return CELLS.filter((j) => j !== i && rowOf(j) === rowOf(i));
     case 'column': return CELLS.filter((j) => j !== i && colOf(j) === colOf(i));
     case 'cross': return CELLS.filter((j) => j !== i && (rowOf(j) === rowOf(i) || colOf(j) === colOf(i)));
+    case 'diagonal': return CELLS.filter((j) => Math.abs(rowOf(j) - rowOf(i)) === 1 && Math.abs(colOf(j) - colOf(i)) === 1); // 斜めの4マス（拡張 Arc-en-ciel Creator）
     case 'garden': return CELLS;
     default: throw new Error(`知らない範囲 ${area}`);
   }

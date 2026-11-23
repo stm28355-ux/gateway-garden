@@ -5,7 +5,9 @@ export const COLOR_JA = { white: '白', red: '赤', blue: '青', green: '緑', y
 export const ROLE_JA = { generate: '生成', guide: '導き', boost: '強化', convert: '変換', score: '得点', chain: '連鎖' };
 export const GROWTH_JA = { early: '早熟', flat: '平ら', late: '晩成' };
 export const stars = (n) => '★'.repeat(n);
-const AREA_JA = { adjacent: '隣', row: '同じ行', column: '同じ列', cross: '同じ行と列', garden: '庭', connected: '連なり' };
+import { CARD_NAMES } from '../core/registry.js';
+
+const AREA_JA = { adjacent: '隣', row: '同じ行', column: '同じ列', cross: '同じ行と列', garden: '庭', connected: '連なり', diagonal: '斜め' };
 const ELEM_ADJ = { white: '白い', red: '赤い', blue: '青い', green: '緑の', yellow: '黄色い' };
 const POS_JA = { center: '中央', corner: '角', edge: '辺' };
 
@@ -29,6 +31,8 @@ export const TERMS = {
   remove: { word: '溶解', help: '範囲のカード1枚まで（選ぶ）を庭から取り除き、捨て札にする' },
   copy: { word: '複製', help: 'カード1枚の写し（同じカード）を、手元のカードに加える。1ラウンドに1枚まで' },
   connected: { word: '連なり', help: 'このカードから上下左右に、条件に合うカードでつながっている全部' },
+  evolve: { word: '進化', help: 'このカードを、決まった別のカードに替える。★は★1に戻る' },
+  fuse: { word: '融合', help: '範囲のカード1枚まで選んで溶かし、溶かしたカードの★の数だけ、このカードを育てる' },
 };
 
 let explain = false; // 「説明も書く」
@@ -84,6 +88,14 @@ function body(e, def, html) {
       const w = html ? kwHtml(TERMS.remove) : '溶解';
       if (e.area === 'self') return `このカードを${w}${e.amount ? `（その★ごとに${html ? kwHtml(TERMS.gain, e.amount) : `産出${e.amount}`}）` : ''}`;
       return `${target(e.area, e.filter, html)}1枚まで${w}${e.amount ? `（その★ごとに${html ? kwHtml(TERMS.gain, e.amount) : `産出${e.amount}`}）` : ''}`;
+    }
+    case 'evolve': {
+      const w = html ? kwHtml(TERMS.evolve) : '進化';
+      return `「${CARD_NAMES[e.into] ?? e.into}」に${w}${e.amount ? `、${e.amount}点` : ''}`;
+    }
+    case 'fuse': {
+      const w = html ? kwHtml(TERMS.fuse) : '融合';
+      return `${target(e.area, e.filter, html)}1枚まで${w}`;
     }
     case 'copy': {
       const w = html ? kwHtml(TERMS.copy) : '複製';

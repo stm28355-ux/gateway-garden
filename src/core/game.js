@@ -5,6 +5,7 @@ import { ELEMENTS, GROWTH } from './schema.js';
 import { randInt, shuffle } from './rng.js';
 import { CELLS, areaCells, adjacent, position } from './garden.js';
 import { GOALS, goalPool, goalPointsOf, registerGoal } from './goals.js';
+import { CARD_NAMES } from './registry.js';
 
 export const BASE_LIMIT = 10;  // D4
 export const MARKET_SIZE = 6;  // D7
@@ -28,7 +29,8 @@ export function buildCatalog(expansions) {
     for (const g of meta.goals ?? []) registerGoal(meta.id, g); // 拡張のお題（その世界を入れたゲームだけに出る）
     for (const c of list) {
       cards[c.id] = { ...c, origin: meta.id };
-      deckIds.push(c.id);
+      CARD_NAMES[c.id] = c.name;
+      if (!c.evolveOnly) deckIds.push(c.id); // 進化でだけ出るカードは山に入れない
     }
   }
   return {
@@ -293,6 +295,13 @@ function runEffect(cat, st, pl, task) {
     case 'copy': // 複製：範囲（なければこのカード）の1枚の写しを、手元のカードに加える
       pl.queue.unshift({ t: 'copy', uid: inst.uid, area: eff.area ?? 'self', filter: eff.filter });
       break;
+    case 'evolve': // 進化：このカードを決まった別のカードに替える。★1に戻る。amount があれば、その点を得る
+      pl.garden[cell] = { uid: st.uidNext++, id: eff.into, stage: 1 };
+      if (eff.amount) pl.bonus += eff.amount;
+      break;
+    case 'fuse': // 融合：範囲のカード1枚まで（選ぶ）を溶かし、溶かしたら、そのカードの★の数だけこのカードを育てる
+      pl.queue.unshift({ t: 'fuse', uid: inst.uid, area: eff.area, filter: eff.filter, chain: task.chain });
+      break;
     default: // discount・limit は常に、bend は拾うときに扱う
   }
 }
@@ -313,6 +322,12 @@ function runTask(cat, st, pl, task) {
   const src = cellOfUid(pl, task.uid);
   if (src < 0) return;
   if (task.t === 'copy' && pl.copiedRound === st.round) return; // 複製は1ラウンドに1枚まで（育てる魔素0で、複製→置く→育てるがくり返さないように）
+  if (task.t === 'fuse') {
+    const options = cellsIn(cat, pl, src, task.area, task.filter).filter((c) => c !== src && pl.garden[c] && matches(cat, pl, src, c, task.filter));
+    if (!options.length) return;
+    pl.choice = { kind: 'fuse', options, chain: task.chain, source: task.uid };
+    return;
+  }
   if (task.t === 'remove' || task.t === 'copy') {
     const options = cellsIn(cat, pl, src, task.area, task.filter).filter((c) => pl.garden[c] && matches(cat, pl, src, c, task.filter));
     if (!options.length) return;
@@ -382,6 +397,16 @@ function resolveChoice(cat, st, pl, value) {
       if (!ch.options.includes(value)) fail('複製するカードを選ぶ');
       copyCard(st, pl, value);
       break;
+    case 'fuse': { // 「まで」なので融合しなくてもよい
+      if (value === null) break;
+      if (!ch.options.includes(value)) fail('融合するカードを選ぶ');
+      const stars = pl.garden[value].stage;
+      const self = cellOfUid(pl, ch.source);
+      removeCard(cat, st, pl, value, 0);
+      pl.choice = null;
+      if (self >= 0) for (let k = 0; k < stars && pl.garden[self].stage < 3; k++) raiseStage(cat, pl, self, ch.chain);
+      return;
+    }
     case 'move':
       if (value !== null) {
         if (!ch.from.includes(value?.from) || !CELLS.includes(value.to) || value.to === value.from) fail('動かすカードと先のマスを選ぶ');
