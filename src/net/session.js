@@ -105,6 +105,18 @@ export class GameHost extends Emitter {
     this.changed();
   }
 
+  // 投了（#10）：その席は CPU が代わりに遊び、戻ってはこない。結果の表に「投了」と出す
+  resignSeat(seat) {
+    const pl = this.st.players[seat];
+    if (!pl || pl.resigned) return;
+    pl.resigned = true;
+    pl.cpu = 'normal';
+    pl.away = true;
+    this.remote.delete(seat);
+    this.journal.note(`${pl.name} が投了したので、CPU が代わりに遊びます`);
+    this.changed();
+  }
+
   returnSeat(seat, peer) {
     const pl = this.st.players[seat];
     pl.cpu = null;
@@ -133,6 +145,7 @@ export class HostRoom extends Emitter {
     this.problem = '';
     net.on('hello', (m, peer) => this.hello(m, peer));
     net.on('act', (a, peer) => this.remoteAct(a, peer));
+    net.on('resign', (m, peer) => this.resigned(peer));
     net.on('lobby', () => { this.problem = '同じ合言葉の部屋がもう作られています。別の合言葉にしてください。'; this.emit(); });
     net.onJoin = () => this.sendLobby();
     net.onLeave = (peer) => this.left(peer);
@@ -149,6 +162,7 @@ export class HostRoom extends Emitter {
     if (this.game) {
       const seat = this.seats.findIndex((s) => s.token && s.token === m.token);
       if (seat < 0 || !this.game.st.players[seat]?.away) { this.net.send('deny', { reason: 'もう始まっています。' }, peer); return; }
+      if (this.game.st.players[seat].resigned) { this.net.send('deny', { reason: '投了したので、このゲームには戻れません。終わるとホストが部屋に戻します。' }, peer); return; }
       this.seats[seat].peer = peer;
       this.game.returnSeat(seat, peer);
       return;
@@ -164,6 +178,13 @@ export class HostRoom extends Emitter {
       this.settings.count = Math.max(this.settings.count, this.seats.length);
     }
     this.sendLobby();
+  }
+
+  resigned(peer) {
+    const seat = this.seats.findIndex((s) => s.peer === peer);
+    if (seat < 0 || !this.game) return;
+    this.seats[seat].peer = null;
+    this.game.resignSeat(seat);
   }
 
   left(peer) {
@@ -258,6 +279,9 @@ export class GuestClient extends Emitter {
   view() { return this.st; }
   log() { return this.lines; }
   elapsed() { return this.elapsedMs; }
+  // 投了（#10）：ホストに伝える。席は CPU が代わる。この後、画面は部屋から出る
+  resign() { if (this.hostId) this.net.send('resign', {}, this.hostId); }
+
   act(a) {
     if (!this.hostId) return 'ホストとつながっていない';
     this.net.send('act', a, this.hostId);

@@ -195,3 +195,24 @@ test('部屋（#9）：部屋の中でゲームセットを変え、終わった
   assert.equal(guest.me, 1);
   host.backToRoom();
 });
+
+test('投了（#10）：入った人が投了すると、席は CPU が代わって「投了」と残り、同じ印でも戻れない', async () => {
+  const hub = makeHub();
+  const host = new HostRoom(hub.make('H'), { name: 'ホスト', count: 2, rounds: 2, expansions: ['base'], versions: cat.versions, makeCatalog: () => cat, timing: { cpuDelay: 0, reactDelay: 0 } });
+  const g1 = new GuestClient(hub.make('G1'), { name: '参加者', token: 'tok' });
+  await until(() => host.seats.length === 2 && g1.lobbyInfo);
+  const game = host.start(5);
+  await until(() => g1.view());
+  g1.resign();
+  await until(() => game.st.players[1].resigned);
+  assert.equal(game.st.players[1].cpu, 'normal');
+  assert.ok(game.st.players[1].away);
+  hub.drop(g1.net);
+  const g2 = new GuestClient(hub.make('G2'), { name: '参加者', token: 'tok' });
+  await until(() => g2.problem);
+  assert.match(g2.problem, /投了/);
+  // ホストが部屋に戻すと、投了した人の席は部屋から外れる
+  host.backToRoom();
+  assert.equal(host.seats.length, 1);
+  clearTimeout(game.timer);
+});

@@ -213,8 +213,8 @@ async function joinRoom({ name, code }) {
   }
 }
 
-// ホストが見つからないまま、これだけたったら「直接つながらない回線かも」と出す
-const SLOW_MS = 45000;
+// ホストが見つからないまま、これだけたったら「直接つながらない回線かも」と出す（#11：つながるまで1分ほどかかることがあるので2分）
+const SLOW_MS = 120000;
 
 // ホストだけが部屋の中でゲームセットを選ぶ（#9）。入った人には上の1行（人数・ラウンド・世界）で見える
 function roomSettingsHtml(info) {
@@ -237,7 +237,7 @@ function renderLobby() {
     ${room.problem ? `<p class="error">${esc(room.problem)}</p>` : ''}
     ${info ? `<p>${info.count}人・${info.rounds}ラウンド・世界：${info.expansions.map(worldName).join('・')}</p>
       <ol class="seats">${seats.map((s, i) => `<li>${s ? esc(s) : '<span class="muted">（空き → 始めると CPU）</span>'}${i === 0 ? '（ホスト）' : ''}</li>`).join('')}</ol>`
-    : `<p class="muted">ホストを探しています…（ホストが部屋を作っていないと見つかりません。ふつう1分くらいかかります）</p>
+    : `<p class="muted">ホストを探しています…（ホストが部屋を作っていないと見つかりません。ふつう1分くらい、回線によっては2分近くかかります）</p>
       ${room.since && Date.now() - room.since > SLOW_MS ? '<p class="error">まだ見つかりません。ホストとあなたのどちらかが、直接つながらない回線（越えにくい NAT）にいるのかもしれません。<a href="net-check.html" target="_blank">通信の確かめ</a>を2人とも開いて、結果を見比べてください。</p>' : ''}`}
     ${isHost ? `${roomSettingsHtml(info)}<p class="muted">入る人に合言葉「${esc(room.code)}」を伝えてください。全員そろったら始めます。終わったらこの部屋に戻り、つないだまま次のゲームを始められます。</p>
       <button class="primary" data-act="lobby-start">はじめる</button>`
@@ -527,7 +527,7 @@ function opponentBoxes() {
   return st.players.filter((p) => p.index !== ME).map((pl) => {
     const s = scoreOf(cat, st, pl.index);
     const status = st.phase === 'react' ? (pl.status === 'done' ? '終えた' : '考え中') : '';
-    const who = pl.away ? '抜けた・CPU が代わり' : (pl.cpu ? 'CPU' : '');
+    const who = pl.resigned ? '投了・CPU が代わり' : pl.away ? '抜けた・CPU が代わり' : (pl.cpu ? 'CPU' : '');
     const now = (st.phase === 'pick' && pickOrder(st)[st.turn] === pl.index) || (st.phase === 'draft' && st.draftOrder[st.turn] === pl.index);
     return `<button class="opp-box ${now ? 'now' : ''} ${oppOpen === pl.index ? 'open' : ''}" data-act="opp" data-p="${pl.index}" title="${who ? `${who}・` : ''}押すと庭を詳しく見る">
       <b class="ob-name">${esc(pl.name)}</b>
@@ -579,7 +579,7 @@ function endHtml() {
   const reveal = !endRevealed;
   endRevealed = true;
   const sorted = [...st.result].sort((a, b) => a.rank - b.rank);
-  const rows = sorted.map((r, k) => `<tr class="${reveal ? 'reveal' : ''} ${r.rank === 1 ? 'first' : ''}" style="--d:${(sorted.length - 1 - k) * 0.45}s"><td>${r.rank === 1 ? '<span class="crown">♛</span>' : ''}${r.rank}位</td><td>${esc(nameOf(r.player))}</td><td>${r.stage}</td><td>${r.end}</td><td>${r.goals}</td><td><b>${r.total}</b></td><td>${r.stage3}</td><td>${st.players[r.player].discarded}</td></tr>`).join('');
+  const rows = sorted.map((r, k) => `<tr class="${reveal ? 'reveal' : ''} ${r.rank === 1 ? 'first' : ''}" style="--d:${(sorted.length - 1 - k) * 0.45}s"><td>${r.rank === 1 ? '<span class="crown">♛</span>' : ''}${r.rank}位</td><td>${esc(nameOf(r.player))}${st.players[r.player].resigned ? '<small class="muted">（投了）</small>' : ''}</td><td>${r.stage}</td><td>${r.end}</td><td>${r.goals}</td><td><b>${r.total}</b></td><td>${r.stage3}</td><td>${st.players[r.player].discarded}</td></tr>`).join('');
   return `<div class="overlay"><div class="end">
     <h2>結果</h2>
     <table><tr><th></th><th>名前</th><th>★の点</th><th>実り</th><th>お題カード</th><th>合計</th><th>★★★</th><th>捨てた魔素</th></tr>${rows}</table>
@@ -641,6 +641,7 @@ function render() {
     <button data-act="log-open">できごと</button>
     <button data-act="pool">カードの一覧</button>
     <button data-act="memo">メモ</button>
+    ${st.phase !== 'end' ? '<button data-act="resign" title="途中でゲームをやめる">投了</button>' : ''}
     <button data-act="calm" title="飛ぶ・歩く動きをなくし、光るだけにする">${isCalm() ? '動きを戻す' : '動きを減らす'}</button>
     ${session.record ? '<button data-act="copy">記録をコピー</button>' : ''}
   </nav>
@@ -738,7 +739,31 @@ document.addEventListener('mouseover', (ev) => {
   showTip(el);
 });
 
+// 投了（#10）：1人なら、セットの選択に戻る。ホストなら、全員のゲームを終えて部屋に戻る。
+// 入った人なら、席を CPU に任せて部屋から出る（結果の表に「投了」）
+function resign() {
+  if (st?.phase === 'end') return;
+  const text = room instanceof HostRoom ? '投了すると、全員のゲームを終えて部屋（待合室）に戻ります。よいですか？'
+    : room ? '投了すると、あなたの席は CPU が代わりに遊び、あなたは部屋から出ます。よいですか？'
+      : 'ゲームをやめて、セットの選択に戻りますか？';
+  if (!window.confirm(text)) return;
+  if (room instanceof HostRoom) return backToRoom();
+  if (room) { room.resign(); setTimeout(backToSetup, 400); return; } // 投了が届いてから抜ける
+  backToSetup();
+}
+
+function backToRoom() {
+  lastView = null; // 前のゲームとくらべて演出しないように
+  clearTimeout(session?.timer);
+  room.backToRoom();
+  session = null;
+  st = null;
+  screen = 'lobby';
+  render();
+}
+
 function backToSetup() {
+  lastView = null; // 前のゲームとくらべて演出しないように
   room?.net?.leave?.();
   clearTimeout(session?.timer);
   session = null;
@@ -753,14 +778,7 @@ app.addEventListener('click', async (ev) => {
   if (!el) return;
   const d = el.dataset;
   if (d.act === 'lobby-leave' || d.act === 'again') return backToSetup();
-  if (d.act === 'room-back' && room instanceof HostRoom) {
-    clearTimeout(session?.timer);
-    room.backToRoom();
-    session = null;
-    st = null;
-    screen = 'lobby';
-    return render();
-  }
+  if (d.act === 'room-back' && room instanceof HostRoom) return backToRoom();
   if (d.act === 'lobby-start') {
     cat = room.makeCatalog(room.settings.expansions);
     const game = room.start(Math.floor(Math.random() * 1e9));
@@ -774,6 +792,7 @@ app.addEventListener('click', async (ev) => {
   switch (d.act) {
     case 'memo': memo.toggle(); return;
     case 'calm': setCalm(!isCalm()); render(); return;
+    case 'resign': return resign();
     case 'pool': poolOpen = true; break;
     case 'log-open': logOpen = true; break;
     case 'log-close': if (ev.target.closest('[data-stop]') && !ev.target.closest('button')) return; logOpen = false; break;
