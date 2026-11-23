@@ -20,6 +20,7 @@ export const KEYWORDS = {
   end: { word: '実り', help: 'ゲームの終わりに点になる' },
   always: { word: '加護', help: '置いてある間ずっと' },
   use: { word: '手入れ', help: '手入れフェーズで好きなときに。1ラウンドに1回' },
+  dusk: { word: '夜露', help: 'ラウンドの終わりに毎回、開花がすべて終わったあと。呼応では動かない' },
 };
 export const RESONATE = { word: '呼応', help: 'そのカードの「開花」を、今すぐもう1回動かす' };
 // 長い決まった文や、よく出る文を短い言葉にまとめる（工程9 F1〜F3・産出。呼応と同じく、マウスを乗せると説明が出る）
@@ -32,6 +33,7 @@ export const TERMS = {
   copy: { word: '複製', help: 'カード1枚の写し（同じカード）を、手元のカードに加える。1ラウンドに1枚まで' },
   connected: { word: '連なり', help: 'このカードから上下左右に、条件に合うカードでつながっている全部' },
   evolve: { word: '進化', help: 'このカードを、決まった別のカードに替える。★は★1に戻る' },
+  halt: { word: '止める', help: 'そのカードの開花と夜露が動かない（呼応でも動かない）。来訪・芽吹き・加護・手入れ・実りは動く' },
 };
 
 let explain = false; // 「説明も書く」
@@ -52,6 +54,7 @@ const BEND_JA = {
 function filterWords(f) {
   if (!f) return '';
   if (f.empty) return '空きマス';
+  if (f.same) return '同じ';
   const w = [];
   if (f.position) w.push(`${POS_JA[f.position]}の`);
   if (f.minStage) w.push(`${stars(f.minStage)}以上の`);
@@ -76,7 +79,7 @@ function body(e, def, html) {
   switch (e.do) {
     case 'gain': return `${html ? kwHtml(TERMS.gain, n) : `産出${n}`}${e.color === 'any' ? '' : `（${color}）`}`;
     case 'convert': return `${html ? kwHtml(TERMS.convert, n) : `変性${n}`}${e.to === 'any' ? '' : `（${COLOR_JA[e.to]}）`}`;
-    case 'stageUp': return `${target(e.area, e.filter, html)}1枚を★1つ育てる`;
+    case 'stageUp': return e.area === 'self' ? `このカードを★${n}つ育てる` : `${target(e.area, e.filter, html)}1枚を★1つ育てる`;
     case 'discount': return `${target(e.area, e.filter, html)}を育てる魔素-${n}`;
     case 'score': return `${n}点`;
     case 'hoard': return `残った魔素${e.every}個につき${n}点`;
@@ -96,6 +99,7 @@ function body(e, def, html) {
       const w = html ? kwHtml(TERMS.remove) : '溶解';
       return `${target(e.area, e.filter, html)}1枚まで${w}（その★ごとに、このカードを★1つ育てる）`;
     }
+    case 'halt': return `${target(e.area, e.filter, html)}を${html ? kwHtml(TERMS.halt) : '止める'}`;
     case 'copy': {
       const w = html ? kwHtml(TERMS.copy) : '複製';
       return (e.area ?? 'self') === 'self' ? `このカードを${w}` : `${target(e.area, e.filter, html)}1枚を${w}`;

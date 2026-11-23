@@ -202,3 +202,49 @@ test('斜め：斜めの4マス（角は1マス、辺は2マス）', () => {
   assert.equal(countIn(cat2, st.players[0], 4, { area: 'diagonal' }), 4);
   assert.equal(countIn(cat2, st.players[0], 0, { area: 'diagonal' }), 1); // 角（0）の斜めは中央（4）だけ
 });
+
+// ---- 拡張 Aether Atelier で足した部品：止める（halt）・夜露（dusk）・同じカード（filter same）----
+const aaExp = {
+  meta: { id: 'parts-aa', name: '部品の試し3', version: '0.1.0', authors: ['test'] },
+  cards: [
+    card(1, 'blue', 'generate', [[{ when: 'activate', do: 'gain', color: 'blue', amount: 1 }, { when: 'dusk', do: 'stageUp', amount: 1, area: 'self' }], [], []]),
+    card(2, 'yellow', 'boost', [[{ when: 'always', do: 'halt', area: 'adjacent' }], [], []]),
+    card(3, 'yellow', 'generate', [[{ when: 'activate', do: 'gain', color: 'yellow', amount: 1, per: { area: 'adjacent', filter: { same: true } } }], [], []]),
+  ].map((c) => ({ ...c, id: c.id.replace('parts-test', 'parts-aa') })),
+};
+const cat3 = buildCatalog([base, aaExp]);
+function doneState(cards) {
+  const st = createGame(cat3, { players: [{ name: 'A' }, { name: 'B' }], seed: 7, firstPlayer: 0 });
+  st.phase = 'react';
+  st.players[0].status = 'acting';
+  st.players[0].pending = [];
+  let uid = 5000;
+  for (const [cell, id, stage = 1] of cards) st.players[0].garden[cell] = { uid: uid++, id, stage };
+  const before = { ...st.players[0].mana };
+  applyMut(cat3, st, { type: 'done', player: 0 });
+  return { pl: st.players[0], before };
+}
+
+test('夜露：開花のあとに毎ラウンド動く（ここでは自分を★1つ育てる）', () => {
+  assert.deepEqual(validateExpansion('parts-aa', aaExp.meta, aaExp.cards), []);
+  const { pl, before } = doneState([[4, 'parts-aa-1']]);
+  assert.equal(pl.mana.blue - before.blue, 1);
+  assert.equal(pl.garden[4].stage, 2);
+  assert.deepEqual(stageLines(cat3.cards['parts-aa-1'], 0), ['開花：産出1（青）', '夜露：このカードを★1つ育てる']);
+});
+
+test('止める：範囲のカードの開花と夜露が動かない', () => {
+  const { pl, before } = doneState([[4, 'parts-aa-1'], [1, 'parts-aa-2']]);
+  assert.equal(pl.mana.blue - before.blue, 0);
+  assert.equal(pl.garden[4].stage, 1);
+  assert.deepEqual(stageLines(cat3.cards['parts-aa-2'], 0), ['加護：隣のカードを止める']);
+  // 範囲の外なら動く
+  const far = doneState([[4, 'parts-aa-1'], [0, 'parts-aa-2']]);
+  assert.equal(far.pl.garden[4].stage, 2);
+});
+
+test('同じカード：隣の同じカードごとに', () => {
+  const { pl, before } = doneState([[0, 'parts-aa-3'], [1, 'parts-aa-3'], [2, 'parts-aa-3']]);
+  assert.equal(pl.mana.yellow - before.yellow, 4); // 端は1枚ずつ、真ん中は2枚
+  assert.deepEqual(stageLines(cat3.cards['parts-aa-3'], 0), ['開花：隣の同じカードごとに産出1（黄）']);
+});
