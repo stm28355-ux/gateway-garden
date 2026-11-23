@@ -1,0 +1,62 @@
+{
+  "id": "arc-en-ciel-2",
+  "name": "アルカンシエル 後編（Arc-en-ciel Creator）",
+  "short": "虹後",
+  "version": "0.1.0",
+  "authors": [
+    "Gateway Garden"
+  ],
+  "note": "Arc-en-ciel Creator のヒュマノ・マシン・スケイル・テンタクル・レイス系。白＝無・光・闇、赤＝炎、青＝水・氷、緑＝風、黄＝雷・土",
+  "goals": [
+    {
+      "id": "windmill",
+      "name": "大風車",
+      "text": "2×2の4マスを、★★★のカードで埋める（2×2マスの大風車の形）",
+      "kind": "shape",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "filter": {
+        "minStage": 3
+      }
+    },
+    {
+      "id": "beam",
+      "name": "光線塔",
+      "text": "一列（行か列）を、★★★のカード3枚で埋める（まっすぐ撃つ光線の形）",
+      "kind": "shape",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "filter": {
+        "minStage": 3
+      }
+    }
+  ]
+}
