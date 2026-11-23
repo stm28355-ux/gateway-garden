@@ -10,6 +10,7 @@ const BY_ORIGIN = {
   'auto-battler-1': autoBattlerArt, // 本家 auto-battler の駒の絵（16×16）をそのまま（判定 AB1）
   'celestial-alchemy-1': celestialArt, // 32×32 のドット絵（人に顔、物は顔なし）
   'arc-en-ciel-1': arcEnCielArt, // 本家 Arc-en-ciel Creator のモンスターの絵（32×32）をそのまま
+  'arc-en-ciel-2': arcEnCielArt,
 };
 
 export function cardArt(d, size = 96) {

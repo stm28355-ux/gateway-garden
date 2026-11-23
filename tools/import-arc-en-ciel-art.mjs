@@ -9,12 +9,17 @@ const root = resolve(process.argv[2] ?? '../arc-en-ciel-creator');
 const { drawSprite } = await import(pathToFileURL(resolve(root, 'src/art/sprites.js')).href);
 const { MONSTERS } = await import(pathToFileURL(resolve(root, 'src/data/monsters.js')).href);
 
-// 住人の名前 → 本家のモンスターの種類（前編）
+// 住人の名前 → 本家のモンスターの種類（前編・後編）
 const KINDS = [
   'slime', 'hinoko', 'waterslime', 'zapslime', 'sprite', 'dandelion', 'frostflower', 'peppercannon',
   'hawk', 'firebird', 'thunderbird', 'dove', 'bat', 'mole', 'seal', 'flamebat',
   'turtle', 'crystalgolem', 'icerock', 'skyshell',
   'bigslime', 'forestsprite', 'eagle', 'stormbat', 'rockturtle',
+  // 後編
+  'singer', 'demon', 'flamelord', 'piper', 'sparkbot', 'firework', 'machinaflower', 'holybot',
+  'elderdragon', 'frog', 'wyvern', 'eel', 'shockjelly', 'squid', 'fruitwhip', 'starfish',
+  'plasma', 'yukionna', 'candle', 'hellfire',
+  'maou', 'megasparkbot', 'rainfrog', 'boltjelly',
 ];
 
 const CHARS = '.123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
