@@ -20,6 +20,12 @@ export const KEYWORDS = {
   use: { word: '手入れ', help: '手入れフェーズで好きなときに。1ラウンドに1回' },
 };
 export const RESONATE = { word: '呼応', help: 'そのカードの「開花」を、今すぐもう1回動かす' };
+// 長い決まった文を短い言葉にまとめる（工程9 F1〜F3。呼応と同じく、マウスを乗せると説明が出る）
+export const TERMS = {
+  swap: { word: '入れ替え', help: '摘む束の1つを、場の別の束の1つと入れ替えてから摘む' },
+  add: { word: 'おかわり', help: '摘んだ束にこのカードの色があれば、その色をもう1つ' },
+  convert: { word: '変性', help: '手持ちの魔素を、決めた数まで好きな色に変える（色が書いてあればその色に）' },
+};
 
 let explain = false; // 「説明も書く」
 export const setExplain = (v) => { explain = v; };
@@ -61,7 +67,7 @@ function body(e, def, html) {
   const color = e.color === 'self' ? COLOR_JA[def.element] : COLOR_JA[e.color];
   switch (e.do) {
     case 'gain': return `${color}を${n}つ得る`;
-    case 'convert': return `手持ちの魔素${n}つまでを${COLOR_JA[e.to]}に変える`;
+    case 'convert': return `${html ? kwHtml(TERMS.convert, n) : `変性${n}`}${e.to === 'any' ? '' : `（${COLOR_JA[e.to]}）`}`;
     case 'stageUp': return `${target(e.area, e.filter)}1枚を★1つ育てる`;
     case 'discount': return `${target(e.area, e.filter)}を育てる魔素-${n}`;
     case 'score': return `${n}点`;
@@ -69,13 +75,13 @@ function body(e, def, html) {
     case 'limit': return `持てる魔素+${n}`;
     case 'trigger': return html ? `${target(e.area, e.filter)}に${kwHtml(RESONATE)}` : `${target(e.area, e.filter)}に呼応（開花をすぐ動かす）`;
     case 'move': return `${target(e.area, e.filter)}1枚を別のマスへ動かす`;
-    case 'bend': return BEND_JA[e.kind];
+    case 'bend': return TERMS[e.kind] ? (html ? kwHtml(TERMS[e.kind]) : TERMS[e.kind].word) : BEND_JA[e.kind];
     default: return e.do;
   }
 }
 
 function wrap(e, s) {
-  if (e.per) s = `${target(e.per.area, e.per.filter)}1枚につき${s}`;
+  if (e.per) s = `${target(e.per.area, e.per.filter)}ごとに${s}`;
   if (e.if) s = `${target(e.if.area, e.if.filter)}が${e.if.atLeast}枚以上なら、${s}`;
   if (e.at) s = `${POS_JA[e.at]}にあれば、${s}`;
   return s;
@@ -93,14 +99,23 @@ export function effectHtml(e, def, stage) {
   return `${kwHtml(k)}：${wrap(e, body(e, def, true))}`;
 }
 
+// 同じ「いつ」の効果は1行にまとめる（工程9 F4：開花：A、B）
+function merged(def, i, head, rest) {
+  const rows = [];
+  for (const e of def.stages[i].effects) {
+    const row = rows.find((r) => r.when === e.when);
+    if (row) row.parts.push(rest(e));
+    else rows.push({ when: e.when, head: head(e), parts: [rest(e)] });
+  }
+  return rows.length ? rows.map((r) => `${r.head}：${r.parts.join('、')}`) : ['（効果なし）'];
+}
+
 export function stageLines(def, i) {
-  const lines = def.stages[i].effects.map((e) => effectText(e, def, i + 1));
-  return lines.length ? lines : ['（効果なし）'];
+  return merged(def, i, (e) => KEYWORDS[e.when].word, (e) => wrap(e, body(e, def, false)));
 }
 
 export function stageLinesHtml(def, i) {
-  const lines = def.stages[i].effects.map((e) => effectHtml(e, def, i + 1));
-  return lines.length ? lines : ['（効果なし）'];
+  return merged(def, i, (e) => kwHtml(KEYWORDS[e.when]), (e) => wrap(e, body(e, def, true)));
 }
 
 export function costText(cost) {
@@ -109,6 +124,6 @@ export function costText(cost) {
 
 // ことばの一覧（遊び方とカードの一覧に出す）
 export function glossaryHtml() {
-  const rows = [...Object.values(KEYWORDS), RESONATE].map((k) => `<tr><th>${k.word}</th><td>${esc(k.help)}</td></tr>`).join('');
+  const rows = [...Object.values(KEYWORDS), RESONATE, ...Object.values(TERMS)].map((k) => `<tr><th>${k.word}</th><td>${esc(k.help)}</td></tr>`).join('');
   return `<table class="glossary">${rows}</table>`;
 }

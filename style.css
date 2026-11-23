@@ -94,6 +94,14 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
 .a-goals .goal { padding: 2px 8px; }
 .a-goals .goal span { font-size: 11px; line-height: 1.25; }
 .a-goals .goal small { font-size: 11px; }
+/* 工程9 G5：お題の順位の枠（縦に並べ、点は先に書いておく） */
+.goal-slots { grid-column: 1 / -1; list-style: none; margin: 2px 0 2px; padding: 0; display: grid; gap: 2px; }
+.goal-slots li { display: grid; grid-template-columns: 30px 30px 1fr; align-items: center; gap: 4px; min-height: 20px; padding: 1px 6px;
+  border: 1px dashed rgba(201, 164, 90, .35); border-radius: 5px; font-size: 11px; color: var(--muted); }
+.goal-slots li b { color: var(--gold-hi); font-weight: 700; } .goal-slots li em { font-style: normal; }
+.goal-slots li.taken { border-style: solid; background: rgba(201, 164, 90, .12); color: var(--ink); }
+.goal-slots li.next { border-color: var(--sel); box-shadow: 0 0 0 1px rgba(143, 214, 255, .35); }
+.slot-who { display: flex; gap: 6px; flex-wrap: wrap; } .slot-who .me { font-weight: 700; color: var(--gold-hi); }
 .a-garden .board-slab { margin: 6px 0 0; padding: 10px; }
 .a-garden .board-slab .garden { gap: 6px; }
 .a-action .panel { min-height: 0; }
@@ -105,7 +113,7 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
 
 .goals { display: grid; gap: 6px; }
 .goal { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; background: rgba(0,0,0,.18); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
-.goal > div:last-child { display: grid; }
+.goal > div:nth-child(2) { display: grid; }
 .goal-art { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 8px; background: radial-gradient(circle, rgba(232, 199, 126, .25), transparent 70%); }
 .goal span { font-size: 12px; }
 .goal small { color: var(--muted); }
@@ -134,10 +142,10 @@ h2 { font-size: 13px; margin: 10px 0 6px; color: var(--gold-hi); font-weight: 60
 .card-top { display: flex; justify-content: space-between; align-items: center; gap: 4px; height: 18px; font-weight: 700; font-size: 12px; }
 .card-top .name { white-space: nowrap; overflow: hidden; }
 .card-top .name.long { font-size: 11px; } .card-top .name.longer { font-size: 10px; letter-spacing: -.03em; }
-.card-art { height: 54px; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--c, var(--gold)) 38%, transparent), transparent 70%); }
+.card-art { height: 48px; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--c, var(--gold)) 38%, transparent), transparent 70%); }
 .card-art .noart { font-family: "Shippori Mincho", serif; font-size: 11px; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; padding: 2px 6px; }
 .card-mid { color: var(--muted); white-space: nowrap; overflow: hidden; }
-.card-text { margin-top: 1px; line-height: 1.32; height: 44px; overflow: hidden; }
+.card-text { margin-top: 1px; line-height: 1.32; height: 51px; overflow: hidden; }
 .card-text.long { font-size: 10px; line-height: 1.25; }
 .card-cost { position: absolute; left: 6px; bottom: 3px; display: flex; gap: 2px; align-items: center; font-weight: 700; }
 .card-cost .dot { width: 15px; height: 15px; }

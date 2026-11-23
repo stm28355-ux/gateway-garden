@@ -3,7 +3,7 @@
 import { buildCatalog, copiesFor, applyAction, pickOrder, autoPay, buyCost, growCost, limitOf, manaTotal, scoreOf, MAX_BUYS, HAND_LIMIT } from '../core/game.js';
 import { wantOf } from '../core/cpu.js';
 import { ELEMENTS, GROWTH } from '../core/schema.js';
-import { GOALS, goalPointsOf } from '../core/goals.js';
+import { GOALS, GOAL_POINTS } from '../core/goals.js';
 import { stageLinesHtml, costText, COLOR_JA, ROLE_JA, GROWTH_JA, stars, glossaryHtml, setExplain } from './describe.js';
 import { GameHost, HostRoom, GuestClient } from '../net/session.js';
 import { openTrystero } from '../net/trystero.js';
@@ -284,7 +284,7 @@ function cardHtml(c, { stage = null, attrs = '', cls = '', showCost = false, cos
     <div class="card-top"><span class="name ${nameCls(d.name)}">${esc(d.name)}</span>${stage ? `<span class="pips">${stars(stage)}</span>` : ''}</div>
     <div class="card-art">${artHtml(d, 48)}</div>
     <div class="card-mid">${ROLE_JA[d.role]}・${GROWTH_JA[d.growth]}${pts ? `・${pts}点` : ''}<span class="world-tag" title="${esc(worldName(d.origin))}">${esc(worldShort(d.origin))}</span></div>
-    <div class="card-text ${plain.length > 34 ? 'long' : ''}">${lines.join('<br>')}</div>
+    <div class="card-text ${plain.length > 28 ? 'long' : ''}">${lines.join('<br>')}</div>
     ${showCost ? `<div class="card-cost">${costGems(d.cost)}</div>` : ''}
     ${cost !== null ? `<div class="card-cost">育てる ${manaDot(d.element, '', 14)}${cost}</div>` : ''}
   </div>`;
@@ -301,12 +301,18 @@ function detailHtml() {
   </div>`;
 }
 
+// お題は立て札（工程9 G5）。順位の枠を先に縦に並べ、点を書いておく。満たした人の名前が枠に入る。
+// 同じラウンドに満たした人は同じ順位。今満たすと入る枠を光らせる
 function goalsHtml() { // 反応フェーズ中の取り方は、view がすでに「始まった時＋自分の分」にしてある
   return st.goals.map((g) => {
     const claims = st.claims[g];
-    const who = claims.map((x) => `${esc(nameOf(x.player))}（${goalPointsOf(claims, x.round)}点）`).join('・');
-    const next = goalPointsOf(claims, st.round); // 今満たしたら何点か
-    return `<div class="goal"><div class="goal-art">${goalArt(g, 40)}</div><div><b>${GOALS[g].name}</b><span>${GOALS[g].text}</span><small>${who || 'まだ誰も'}・今なら${next}点</small></div></div>`;
+    const rounds = [...new Set(claims.map((x) => x.round))].sort((a, b) => a - b);
+    const nowRank = rounds.includes(st.round) ? rounds.indexOf(st.round) : rounds.filter((r) => r < st.round).length;
+    const slots = GOAL_POINTS.filter((pt) => pt > 0).map((pt, i) => {
+      const who = claims.filter((x) => rounds.indexOf(x.round) === i).map((x) => `<span class="${x.player === ME ? 'me' : ''}">${esc(nameOf(x.player))}</span>`).join('');
+      return `<li class="${who ? 'taken' : ''} ${i === nowRank && st.phase !== 'end' ? 'next' : ''}"><b>${i + 1}位</b><em>${pt}点</em><span class="slot-who">${who}</span></li>`;
+    }).join('');
+    return `<div class="goal"><div class="goal-art">${goalArt(g, 40)}</div><div><b>${GOALS[g].name}</b><span>${GOALS[g].text}</span></div><ol class="goal-slots">${slots}</ol></div>`;
   }).join('');
 }
 
