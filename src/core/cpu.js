@@ -48,6 +48,8 @@ function prodOf(cat, pl, o = PROFILES.normal) {
       else if (e.when === 'pick' && e.do === 'bend') v += e.kind === 'add' ? 0.7 : 0.5;
       else if (e.when === 'always' && e.do === 'discount') v += 0.4 * n;
       else if (e.when === 'always' && e.do === 'limit') v += 0.1 * n;
+      else if (e.when === 'activate' && e.do === 'copy') v += 1.5; // 毎ラウンド、カードが1枚増える
+      else if (e.when === 'activate' && e.do === 'remove') v += 0.3 * (e.amount ?? 0);
     }
   });
   return v;
@@ -137,6 +139,24 @@ export function chooseValue(cat, st, p) {
       const inst = pl.garden[c];
       const d = defOf(cat, inst);
       return (d.stages[inst.stage].points ?? 0) - (d.stages[inst.stage - 1].points ?? 0);
+    });
+    case 'remove': { // 溶かした後の値打ち（得た魔素も入る）が、溶かさないより良いときだけ溶かす
+      let pickCell = null;
+      let bestV = valueOf(cat, st, p);
+      for (const c of ch.options) {
+        const s = clone(st);
+        const q = s.players[p];
+        const inst = q.garden[c];
+        q.garden[c] = null;
+        if (ch.amount) q.mana[defOf(cat, inst).element] += ch.amount * inst.stage;
+        const v = valueOf(cat, s, p);
+        if (v > bestV + 1e-9) { bestV = v; pickCell = c; }
+      }
+      return pickCell;
+    }
+    case 'copy': return best(ch.options, (c) => {
+      const d = defOf(cat, pl.garden[c]);
+      return d.stages.reduce((s, x) => s + (x.points ?? 0), 0);
     });
     case 'move': { // 動かし方を全部試し、今より良くなる中で一番良いもの
       let bestMove = null;

@@ -1,6 +1,7 @@
 // お題カードの絵（工程7の判定 X2・Y3：お題の名前と、満たす中身の両方が分かる絵）。住人と同じ道具・同じ縁取りで、32×32。
 // 中身の数（何枚・何か所）は、絵の中の数で見せる（例：大きな木＝★★★の木が2本）。
 import { grid, toSvg } from './pixel.js';
+import { GOALS } from '../core/goals.js';
 
 const INK = '#1d1a33';
 const C = { red: '#e3604f', blue: '#5c9ae6', green: '#4ea860', greenLight: '#8fd39a', yellow: '#ffd03a', white: '#efe9d6',
@@ -99,5 +100,33 @@ const DRAW = {
 };
 
 export function goalArt(id, size = 36) {
-  return DRAW[id] ? toSvg(DRAW[id](), size) : '';
+  if (DRAW[id]) return toSvg(DRAW[id](), size);
+  const def = GOALS[id];
+  if (def?.shape) return toSvg(shapeArt(def), size);
+  if (def?.count) return toSvg(countArt(def), size);
+  return '';
+}
+
+// 拡張のお題（expansion.json の goals）の絵：庭の3×3に、満たす形の印。★の条件は上に★
+function shapeArt(def) {
+  const g = grid();
+  const on = new Set(def.shape.map(([r, c]) => r * 3 + c));
+  for (let i = 0; i < 9; i++) {
+    const x = cell3[i % 3], y = cell3[Math.floor(i / 3)] + 2;
+    if (on.has(i)) card(g, x, y, x + 7, y + 7, C.gold).rect(x + 2, y + 2, x + 5, y + 5, C.goldLight);
+    else g.rect(x + 1, y + 1, x + 6, y + 6, C.soil);
+  }
+  if (def.filter?.minStage) stars(g, 2, 1, def.filter.minStage);
+  return g.outline(INK);
+}
+
+function countArt(def) {
+  const g = grid();
+  const n = Math.min(def.count, 9);
+  for (let k = 0; k < n; k++) {
+    const x = 3 + (k % 3) * 9, y = 4 + Math.floor(k / 3) * 9;
+    card(g, x, y, x + 7, y + 7, C.gold);
+  }
+  if (def.filter?.minStage) stars(g, 2, 1, def.filter.minStage);
+  return g.outline(INK);
 }

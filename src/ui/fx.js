@@ -181,6 +181,14 @@ export function play(prev, st, me, before, { pickOrder }) {
   });
   if (walkers && gate) glow(gate, '#7ff0ff', 900);
 
+  // 溶解：自分の庭から消えたカード（置き換えでも出る）
+  pPl.garden.forEach((x, i) => {
+    if (!x || pl.garden.some((y) => y?.uid === x.uid)) return;
+    const r = cellRect(i);
+    glow(r, '#ff9a3c', 800);
+    burst(r, ['#ff9a3c', '#e3604f', '#bfe3ff', '#ffffff'], 14, 800);
+  });
+
   // H1 育てた・H7 置いた（自分の庭）
   pl.garden.forEach((x, i) => {
     if (!x) return;

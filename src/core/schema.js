@@ -16,7 +16,8 @@ export const WHEN = ['place', 'activate', 'grow', 'pick', 'end', 'always', 'use'
 const ALWAYS_ONLY = ['discount', 'limit'];
 
 // 範囲（どこ）。向きは入れない（D11）。
-export const AREAS = ['self', 'adjacent', 'row', 'column', 'cross', 'garden']; // 自分・上下左右・同じ行・同じ列・行と列・庭ぜんぶ
+// connected（連なり）：このカードから上下左右に、条件に合うカードでつながっている全部（拡張 Celestial Alchemy で足した）
+export const AREAS = ['self', 'adjacent', 'row', 'column', 'cross', 'garden', 'connected']; // 自分・上下左右・同じ行・同じ列・行と列・庭ぜんぶ・連なり
 export const POSITIONS = ['center', 'corner', 'edge']; // 中央・角・辺
 
 // 拾い方の曲げ方（D12）。基本セットは add と swap。
@@ -34,7 +35,10 @@ export const ACTIONS = {
   limit: ['amount'],                // 持てる素材の上限を広げる
   trigger: [],                      // 範囲の札を発動させる（連鎖）
   bend: ['kind'],                   // 拾い方を曲げる（when: 'pick' だけ）
+  remove: ['amount'],               // 溶解：範囲のカード1枚まで（選ぶ）を庭から取り除く。amount（なくてもよい）があれば、そのカードの★ごとにその色を amount 個得る
+  copy: [],                         // 複製：範囲（なければこのカード）の1枚の写しを、手元のカードに加える
 };
+const OPTIONAL_AMOUNT = ['remove'];
 
 // 各部品に付けられる共通の項目
 const COMMON = ['when', 'do', 'area', 'filter', 'per', 'if', 'at'];
@@ -63,7 +67,7 @@ export function validateEffect(e, where, ctx, err) {
   const fields = ACTIONS[e.do];
   if (!fields) return err(`${where}: do は ${Object.keys(ACTIONS).join('・')} のどれか`);
   for (const k of Object.keys(e)) if (!COMMON.includes(k) && !fields.includes(k)) err(`${where}: 知らない項目 "${k}"`);
-  if (fields.includes('amount') && !(Number.isInteger(e.amount) && e.amount >= 1)) {
+  if (fields.includes('amount') && !(OPTIONAL_AMOUNT.includes(e.do) && e.amount === undefined) && !(Number.isInteger(e.amount) && e.amount >= 1)) {
     err(`${where}: amount は1以上の整数`);
   }
   if (e.do === 'gain' && !(ELEMENTS.includes(e.color) || e.color === 'self' || e.color === 'any')) err(`${where}: gain の color が正しくない`);
@@ -83,7 +87,7 @@ export function validateEffect(e, where, ctx, err) {
   }
   if (e.when === 'grow' && ctx.stage === 1) err(`${where}: 段階1の「その段階になったとき」は起きない`);
   if (e.area !== undefined && !AREAS.includes(e.area)) err(`${where}: area が正しくない`);
-  if (['stageUp', 'discount', 'trigger', 'move'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);
+  if (['stageUp', 'discount', 'trigger', 'move', 'remove'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);
   checkFilter(e.filter, `${where}.filter`, err);
   checkCount(e.per, `${where}.per`, err, false);
   checkCount(e.if, `${where}.if`, err, true);
@@ -123,6 +127,7 @@ export function validateExpansion(dirName, meta, cards) {
   if (meta.short !== undefined && (typeof meta.short !== 'string' || !meta.short || [...meta.short].length > 3)) err('expansion.json の short（カードの上に出す世界の略）は3文字まで');
   if (!/^\d+\.\d+\.\d+$/.test(meta.version ?? '')) err('expansion.json の version は 1.2.3 の形にする');
   if (!Array.isArray(cards)) { err('cards.json は配列にする'); return errors; }
+  validateGoals(meta.goals, err);
   const seen = new Set();
   for (const c of cards) {
     if (seen.has(c?.id)) err(`札「${c.id}」: id が重なっている`);
@@ -130,4 +135,32 @@ export function validateExpansion(dirName, meta, cards) {
     validateCard(c, dirName, err);
   }
   return errors;
+}
+
+// 拡張のお題（expansion.json の goals）。形（shape）か枚数（count）で書く。中身は src/core/goals.js の registerGoal
+const GOAL_FILTER = ['minStage', 'element', 'role', 'origin'];
+function validateGoals(goals, err) {
+  if (goals === undefined) return;
+  if (!Array.isArray(goals)) return err('expansion.json の goals は配列にする');
+  const ids = new Set();
+  for (const g of goals) {
+    const at = `お題「${g?.id ?? 'id なし'}」`;
+    if (!/^[a-z0-9-]+$/.test(g?.id ?? '')) err(`${at}: id は英小文字・数字・- で書く`);
+    if (ids.has(g.id)) err(`${at}: id が重なっている`);
+    ids.add(g.id);
+    if (!g.name || !g.text) err(`${at}: name（名前）と text（満たす中身の文）が要る`);
+    for (const k of Object.keys(g.filter ?? {})) if (!GOAL_FILTER.includes(k)) err(`${at}: filter に知らない項目 "${k}"`);
+    const f = g.filter ?? {};
+    if (f.minStage !== undefined && ![1, 2, 3].includes(f.minStage)) err(`${at}: filter.minStage は 1〜3`);
+    if (f.element !== undefined && !ELEMENTS.includes(f.element)) err(`${at}: filter.element が正しくない`);
+    if (f.role !== undefined && !ROLES.includes(f.role)) err(`${at}: filter.role が正しくない`);
+    if (f.origin !== undefined && f.origin !== 'this') err(`${at}: filter.origin は "this"（この世界のカード）だけ`);
+    if (g.kind === 'shape') {
+      const ok = Array.isArray(g.cells) && g.cells.length >= 2 && g.cells.length <= 9
+        && g.cells.every((p) => Array.isArray(p) && p.length === 2 && p.every((v) => Number.isInteger(v) && v >= 0 && v <= 2));
+      if (!ok) err(`${at}: shape の cells は [行, 列]（0〜2）を2〜9個`);
+    } else if (g.kind === 'count') {
+      if (!(Number.isInteger(g.atLeast) && g.atLeast >= 1 && g.atLeast <= 9)) err(`${at}: count の atLeast は1〜9`);
+    } else err(`${at}: kind は shape か count`);
+  }
 }

@@ -3,8 +3,8 @@
 // ルールの番号（D1〜D18）はフェーズ1、効果の読み方1〜8はフェーズ2の決定（CONTRIBUTING.md）。
 import { ELEMENTS, GROWTH } from './schema.js';
 import { randInt, shuffle } from './rng.js';
-import { CELLS, areaCells, position } from './garden.js';
-import { GOALS, goalPool, goalPointsOf } from './goals.js';
+import { CELLS, areaCells, adjacent, position } from './garden.js';
+import { GOALS, goalPool, goalPointsOf, registerGoal } from './goals.js';
 
 export const BASE_LIMIT = 10;  // D4
 export const MARKET_SIZE = 6;  // D7
@@ -25,6 +25,7 @@ export function buildCatalog(expansions) {
   const cards = {};
   const deckIds = [];
   for (const { meta, cards: list } of expansions) {
+    for (const g of meta.goals ?? []) registerGoal(meta.id, g); // 拡張のお題（その世界を入れたゲームだけに出る）
     for (const c of list) {
       cards[c.id] = { ...c, origin: meta.id };
       deckIds.push(c.id);
@@ -58,8 +59,24 @@ export function matches(cat, pl, srcCell, cell, filter) {
   return true;
 }
 
+// 範囲のマス。連なり（connected）は、このカードから上下左右に、条件に合うカードでつながっている全部（自分は入らない）
+export function cellsIn(cat, pl, src, area, filter) {
+  if (area !== 'connected') return areaCells(area, src);
+  const seen = new Set([src]);
+  const out = [];
+  const queue = [src];
+  while (queue.length) {
+    for (const n of adjacent(queue.shift())) {
+      if (seen.has(n)) continue;
+      seen.add(n);
+      if (matches(cat, pl, src, n, filter)) { out.push(n); queue.push(n); }
+    }
+  }
+  return out;
+}
+
 export const countIn = (cat, pl, srcCell, { area, filter }) =>
-  areaCells(area, srcCell).filter((c) => matches(cat, pl, srcCell, c, filter)).length;
+  cellsIn(cat, pl, srcCell, area, filter).filter((c) => matches(cat, pl, srcCell, c, filter)).length;
 
 function condOk(cat, pl, cell, eff) {
   if (eff.at && position(cell) !== eff.at) return false;
@@ -76,7 +93,7 @@ function alwaysSum(cat, pl, doName, targetCell) {
     for (const e of effectsOf(cat, inst)) {
       if (e.when !== 'always' || e.do !== doName || !condOk(cat, pl, j, e)) continue;
       if (targetCell !== undefined) {
-        if (!areaCells(e.area, j).includes(targetCell) || !matches(cat, pl, j, targetCell, e.filter)) continue;
+        if (!cellsIn(cat, pl, j, e.area, e.filter).includes(targetCell) || !matches(cat, pl, j, targetCell, e.filter)) continue;
       }
       sum += e.amount * multOf(cat, pl, j, e);
     }
@@ -254,7 +271,7 @@ function runEffect(cat, st, pl, task) {
     case 'trigger': {
       const seen = (pl.chains[task.chain] ??= []);
       const tasks = [];
-      for (const c of areaCells(eff.area, cell)) {
+      for (const c of cellsIn(cat, pl, cell, eff.area, eff.filter)) {
         const target = pl.garden[c];
         if (!target || seen.includes(target.uid) || !matches(cat, pl, cell, c, eff.filter)) continue;
         seen.push(target.uid); // 読み方6：連鎖の中で同じ札は1回
@@ -269,6 +286,12 @@ function runEffect(cat, st, pl, task) {
       break;
     case 'move':
       pl.queue.unshift({ t: 'move', uid: inst.uid, area: eff.area, filter: eff.filter });
+      break;
+    case 'remove': // 溶解：範囲のカード1枚まで（選ぶ）を取り除く。amount があれば、そのカードの★ごとに、そのカードの色を得る
+      pl.queue.unshift({ t: 'remove', uid: inst.uid, area: eff.area, filter: eff.filter, amount: eff.amount ?? 0 });
+      break;
+    case 'copy': // 複製：範囲（なければこのカード）の1枚の写しを、手元のカードに加える
+      pl.queue.unshift({ t: 'copy', uid: inst.uid, area: eff.area ?? 'self', filter: eff.filter });
       break;
     default: // discount・limit は常に、bend は拾うときに扱う
   }
@@ -289,8 +312,15 @@ function runTask(cat, st, pl, task) {
   }
   const src = cellOfUid(pl, task.uid);
   if (src < 0) return;
+  if (task.t === 'remove' || task.t === 'copy') {
+    const options = cellsIn(cat, pl, src, task.area, task.filter).filter((c) => pl.garden[c] && matches(cat, pl, src, c, task.filter));
+    if (!options.length) return;
+    if (task.t === 'copy' && options.length === 1) return copyCard(st, pl, options[0]);
+    pl.choice = { kind: task.t, options, amount: task.amount, source: task.uid };
+    return;
+  }
   if (task.t === 'stageUp') {
-    const options = areaCells(task.area, src)
+    const options = cellsIn(cat, pl, src, task.area, task.filter)
       .filter((c) => pl.garden[c] && pl.garden[c].stage < 3 && matches(cat, pl, src, c, task.filter));
     if (!options.length) return;
     if (options.length === 1) return raiseStage(cat, pl, options[0], task.chain);
@@ -298,9 +328,22 @@ function runTask(cat, st, pl, task) {
     return;
   }
   if (task.t === 'move') {
-    const from = areaCells(task.area, src).filter((c) => pl.garden[c] && matches(cat, pl, src, c, task.filter));
+    const from = cellsIn(cat, pl, src, task.area, task.filter).filter((c) => pl.garden[c] && matches(cat, pl, src, c, task.filter));
     if (from.length) pl.choice = { kind: 'move', from, source: task.uid };
   }
+}
+
+// 溶解：庭から取り除いて捨て札へ（工程10の後、拡張 Celestial Alchemy で足した部品）
+function removeCard(cat, st, pl, cell, amount) {
+  const inst = pl.garden[cell];
+  st.discardPile.push({ uid: inst.uid, id: inst.id });
+  pl.garden[cell] = null;
+  if (amount) addGain(pl, defOf(cat, inst).element, amount * inst.stage);
+}
+
+// 複製：同じカード（山にあるのと同じ id）の新しい1枚を、手元のカードに加える
+function copyCard(st, pl, cell) {
+  pl.pending.push({ uid: st.uidNext++, id: pl.garden[cell].id });
 }
 
 function drain(cat, st, pl) {
@@ -326,6 +369,16 @@ function resolveChoice(cat, st, pl, value) {
       pl.choice = null;
       raiseStage(cat, pl, value, ch.chain);
       return;
+    case 'remove': // 「まで」なので溶かさなくてもよい
+      if (value !== null) {
+        if (!ch.options.includes(value)) fail('溶かすカードを選ぶ');
+        removeCard(cat, st, pl, value, ch.amount);
+      }
+      break;
+    case 'copy':
+      if (!ch.options.includes(value)) fail('複製するカードを選ぶ');
+      copyCard(st, pl, value);
+      break;
     case 'move':
       if (value !== null) {
         if (!ch.from.includes(value?.from) || !CELLS.includes(value.to) || value.to === value.from) fail('動かすカードと先のマスを選ぶ');

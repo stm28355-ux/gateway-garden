@@ -388,7 +388,7 @@ function gardenHtml(p, mini = false) {
     let cls = '';
     if (p === ME) {
       if (ch?.source && x?.uid === ch.source) cls += ' source';
-      if (ch?.kind === 'stageUp' && ch.options.includes(i)) cls = 'target';
+      if (['stageUp', 'remove', 'copy'].includes(ch?.kind) && ch.options.includes(i)) cls = 'target';
       if (ch?.kind === 'move' && (ui.moveFrom === null ? ch.from.includes(i) : i !== ui.moveFrom)) cls = 'target';
       if (ui.cell === i) cls += ' sel';
       if (ui.pending !== null && (!x || pl.garden.every(Boolean))) cls += ' target';
@@ -502,6 +502,10 @@ function choicePanel(pl) {
     }
     case 'stageUp':
       return '<p><b>★を育てるカードを選ぶ</b>：光っているマスを押す</p>';
+    case 'remove':
+      return `<p><b>溶かすカードを選ぶ</b>：光っているマスを押す（1枚まで${ch.amount ? `。そのカードの★ごとに、その色の魔素を${ch.amount}個得る` : ''}）</p><button data-act="remove-skip">溶かさない</button>`;
+    case 'copy':
+      return '<p><b>複製するカードを選ぶ</b>：光っているマスを押す（写しが手元のカードに入る）</p>';
     case 'move':
       return `<p><b>カードを動かす</b>：${ui.moveFrom === null ? '動かすカードを押す' : '動かす先のマスを押す（カードがあれば入れ替え）'}</p><button data-act="move-skip">動かさない</button>`;
     case 'discard': {
@@ -847,7 +851,7 @@ app.addEventListener('click', async (ev) => {
     case 'cell': {
       const i = n('cell');
       const ch = pl.choice;
-      if (ch?.kind === 'stageUp') return act({ type: 'choose', player: ME, value: i });
+      if (['stageUp', 'remove', 'copy'].includes(ch?.kind)) { if (ch.options.includes(i)) return act({ type: 'choose', player: ME, value: i }); break; }
       if (ch?.kind === 'move') {
         if (ui.moveFrom === null) { if (ch.from.includes(i)) ui.moveFrom = i; break; }
         return act({ type: 'choose', player: ME, value: { from: ui.moveFrom, to: i } });
@@ -879,6 +883,7 @@ app.addEventListener('click', async (ev) => {
       break;
     case 'conv-to': return act({ type: 'choose', player: ME, value: { from: ui.convFrom, to: d.c } });
     case 'move-skip': return act({ type: 'choose', player: ME, value: null });
+    case 'remove-skip': return act({ type: 'choose', player: ME, value: null });
     case 'disc': ui.discard[d.c] = (ui.discard[d.c] ?? 0) + 1; break;
     case 'undisc': ui.discard[d.c] -= 1; break;
     case 'disc-ok': return act({ type: 'choose', player: ME, value: { ...ui.discard } });

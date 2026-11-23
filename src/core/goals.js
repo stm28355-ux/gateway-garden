@@ -110,12 +110,74 @@ const PROGRESS = {
     return Math.min(1, n / 7);
   },
 };
-export const goalProgress = (cat, id, garden) => (GOALS[id].check(cat, garden) ? 1 : (PROGRESS[id]?.(cat, garden) ?? 0));
+export const goalProgress = (cat, id, garden) => (GOALS[id].check(cat, garden) ? 1 : ((GOALS[id].progress ?? PROGRESS[id])?.(cat, garden) ?? 0));
 
 export const BASE_GOAL_IDS = Object.keys(GOALS).filter((g) => !GOALS[g].needsOrigins);
 
-// そのゲームで出せる目標札（出身の数で決まる）
+// そのゲームで出せる目標札（出身の数と、拡張のお題ならその世界が入っているかで決まる）
 export function goalPool(cat) {
   const origins = Object.keys(cat.versions).length;
-  return Object.keys(GOALS).filter((g) => (GOALS[g].needsOrigins ?? 1) <= origins);
+  return Object.keys(GOALS).filter((g) => (GOALS[g].needsOrigins ?? 1) <= origins && (!GOALS[g].origin || cat.versions[GOALS[g].origin]));
+}
+
+// ---- 拡張のお題（expansion.json の goals）。カードのデータと同じく、決まった形の組み合わせで書く ----
+//   shape：形（cells：3×3 の中の [行, 列]）を、回す・裏返す・ずらして、どこか1か所で全部のマスが filter に合えば満たす
+//   count：filter に合うカードが atLeast 枚以上
+// filter：minStage（★の数以上）・element（色）・role（役目）・origin（"this" でその世界のカード）
+export const GOAL_KINDS = ['shape', 'count'];
+export const GOAL_FILTER_KEYS = ['minStage', 'element', 'role', 'origin'];
+
+const SYMS = [(r, c) => [r, c], (r, c) => [c, -r], (r, c) => [-r, -c], (r, c) => [-c, r], (r, c) => [r, -c], (r, c) => [-c, -r], (r, c) => [-r, c], (r, c) => [c, r]];
+
+// 形を、3×3 の中に置けるすべての置き方（マスの番号の並び）にする
+export function shapePlacements(cells) {
+  const out = new Map();
+  for (const t of SYMS) {
+    const pts = cells.map(([r, c]) => t(r, c));
+    const r0 = Math.min(...pts.map((p) => p[0]));
+    const c0 = Math.min(...pts.map((p) => p[1]));
+    const norm = pts.map(([r, c]) => [r - r0, c - c0]);
+    for (let dr = 0; dr < 3; dr++) {
+      for (let dc = 0; dc < 3; dc++) {
+        const moved = norm.map(([r, c]) => [r + dr, c + dc]);
+        if (moved.some(([r, c]) => r > 2 || c > 2)) continue;
+        const idx = moved.map(([r, c]) => r * 3 + c).sort((a, b) => a - b);
+        out.set(idx.join(','), idx);
+      }
+    }
+  }
+  return [...out.values()];
+}
+
+function goalFit(cat, x, filter, origin) {
+  if (!x) return false;
+  const d = defOf(cat, x);
+  if (filter?.minStage && x.stage < filter.minStage) return false;
+  if (filter?.element && d.element !== filter.element) return false;
+  if (filter?.role && d.role !== filter.role) return false;
+  if (filter?.origin === 'this' && d.origin !== origin) return false;
+  return true;
+}
+
+export function registerGoal(origin, spec) {
+  const id = `${origin}:${spec.id}`;
+  if (GOALS[id]) return id;
+  const fit = (cat, x) => goalFit(cat, x, spec.filter, origin);
+  // 進み具合：条件に合うカードは1、合わないカードがある所は半分（★を育てれば合うかもしれない）
+  const part = (cat, x) => (fit(cat, x) ? 1 : (x ? 0.5 : 0));
+  if (spec.kind === 'shape') {
+    const places = shapePlacements(spec.cells);
+    GOALS[id] = {
+      name: spec.name, text: spec.text, origin, shape: spec.cells, filter: spec.filter,
+      check: (cat, g) => places.some((p) => p.every((c) => fit(cat, g[c]))),
+      progress: (cat, g) => Math.max(...places.map((p) => p.reduce((s, c) => s + part(cat, g[c]), 0) / p.length)),
+    };
+  } else {
+    GOALS[id] = {
+      name: spec.name, text: spec.text, origin, count: spec.atLeast, filter: spec.filter,
+      check: (cat, g) => g.filter((x) => fit(cat, x)).length >= spec.atLeast,
+      progress: (cat, g) => Math.min(1, g.reduce((s, x) => s + part(cat, x), 0) / spec.atLeast),
+    };
+  }
+  return id;
 }
