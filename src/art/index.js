@@ -2,10 +2,12 @@
 // 新しい世界の絵を足すときは、ここに1行足す。絵がなければ null（画面は世界の名前を出す）。
 import { baseArt } from './base.js';
 import { autoBattlerArt } from './auto-battler-1.js';
+import { celestialArt } from './celestial-alchemy-1.js';
 
 const BY_ORIGIN = {
   base: baseArt,
   'auto-battler-1': autoBattlerArt, // 本家 auto-battler の駒の絵（16×16）をそのまま（判定 AB1）
+  'celestial-alchemy-1': celestialArt, // 32×32 のドット絵（人に顔、物は顔なし）
 };
 
 export function cardArt(d, size = 96) {

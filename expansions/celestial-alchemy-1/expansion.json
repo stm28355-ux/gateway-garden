@@ -1,0 +1,43 @@
+{
+  "id": "celestial-alchemy-1",
+  "name": "天体の錬金術（Celestial Alchemy）",
+  "short": "錬金",
+  "version": "0.1.0",
+  "authors": [
+    "Gateway Garden"
+  ],
+  "note": "Celestial Alchemy の人と素材と刻印。白＝見習いと鉛・赤＝火とゼリー・青＝月と水・緑＝木と風・黄＝太陽と金",
+  "goals": [
+    {
+      "id": "l-mark",
+      "name": "器の刻印",
+      "text": "庭の辺に沿った L字の5マスを、★★以上のカードで埋める",
+      "kind": "shape",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "filter": {
+        "minStage": 2
+      }
+    }
+  ]
+}
