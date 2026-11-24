@@ -52,6 +52,7 @@ const BEND_JA = {
 function filterWords(f) {
   if (!f) return '';
   if (f.empty) return '空きマス';
+  if (f.same) return '同じ';
   const w = [];
   if (f.position) w.push(`${POS_JA[f.position]}の`);
   if (f.minStage) w.push(`${stars(f.minStage)}以上の`);
@@ -61,12 +62,13 @@ function filterWords(f) {
   return w.join('');
 }
 
-function target(area, filter, html = false) {
+// at='に' なら「隣に青いカード」（「〜があるとき・ないとき」の条件で使う）
+function target(area, filter, html = false, at = 'の') {
   if (area === 'self') return 'このカード';
   const f = filterWords(filter);
   const a = area === 'connected' && html ? kwHtml(TERMS.connected) : AREA_JA[area];
-  if (f === '空きマス') return `${a}の空きマス`;
-  return `${a}の${f}カード`;
+  if (f === '空きマス') return `${a}${at}空きマス`;
+  return `${a}${at}${f}カード`;
 }
 
 // 本文（キーワードの後ろ）。html=true のときは呼応をキーワードとして描く
@@ -76,7 +78,7 @@ function body(e, def, html) {
   switch (e.do) {
     case 'gain': return `${html ? kwHtml(TERMS.gain, n) : `産出${n}`}${e.color === 'any' ? '' : `（${color}）`}`;
     case 'convert': return `${html ? kwHtml(TERMS.convert, n) : `変性${n}`}${e.to === 'any' ? '' : `（${COLOR_JA[e.to]}）`}`;
-    case 'stageUp': return `${target(e.area, e.filter, html)}1枚を★1つ育てる`;
+    case 'stageUp': return e.area === 'self' ? `このカードを★${n}つ育てる` : `${target(e.area, e.filter, html)}1枚を★1つ育てる`;
     case 'discount': return `${target(e.area, e.filter, html)}を育てる魔素-${n}`;
     case 'score': return `${n}点`;
     case 'hoard': return `残った魔素${e.every}個につき${n}点`;
@@ -107,7 +109,14 @@ function body(e, def, html) {
 
 function wrap(e, s, html = false) {
   if (e.per) s = `${target(e.per.area, e.per.filter, html)}ごとに${s}`;
-  if (e.if) s = `${target(e.if.area, e.if.filter, html)}が${e.if.atLeast}枚以上なら、${s}`;
+  if (e.if) {
+    const t = target(e.if.area, e.if.filter, html);
+    const ni = target(e.if.area, e.if.filter, html, 'に');
+    if (e.if.atMost === 0) s = `${ni}がないとき、${s}`;
+    else if (e.if.atLeast === 1) s = `${ni}があるとき、${s}`;
+    else if (e.if.atMost !== undefined) s = `${t}が${e.if.atMost}枚以下なら、${s}`;
+    else s = `${t}が${e.if.atLeast}枚以上なら、${s}`;
+  }
   if (e.at) s = `${POS_JA[e.at]}にあれば、${s}`;
   return s;
 }

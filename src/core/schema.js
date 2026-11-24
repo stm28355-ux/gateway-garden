@@ -45,7 +45,8 @@ const OPTIONAL_AMOUNT = ['remove', 'evolve'];
 
 // 各部品に付けられる共通の項目
 const COMMON = ['when', 'do', 'area', 'filter', 'per', 'if', 'at'];
-const FILTER_KEYS = ['element', 'role', 'minStage', 'origin', 'empty', 'position'];
+// same：このカードと同じカード（同じ名前。拡張 Aether Atelier の旋盤の相乗で足した）
+const FILTER_KEYS = ['element', 'role', 'minStage', 'origin', 'empty', 'position', 'same'];
 
 function checkFilter(f, where, err) {
   if (f == null) return;
@@ -56,13 +57,18 @@ function checkFilter(f, where, err) {
   if (f.minStage !== undefined && ![1, 2, 3].includes(f.minStage)) err(`${where}.minStage は 1〜3`);
   if (f.origin !== undefined && !['same', 'other'].includes(f.origin)) err(`${where}.origin は same か other`);
   if (f.position !== undefined && !POSITIONS.includes(f.position)) err(`${where}.position が正しくない`);
+  if (f.same !== undefined && f.same !== true) err(`${where}.same は true`);
 }
 
 function checkCount(c, where, err, needAtLeast) {
   if (c == null) return;
   if (!AREAS.includes(c.area)) err(`${where}.area が正しくない`);
   checkFilter(c.filter, `${where}.filter`, err);
-  if (needAtLeast && !(Number.isInteger(c.atLeast) && c.atLeast >= 1)) err(`${where}.atLeast は1以上の整数`);
+  if (!needAtLeast) return;
+  // if は atLeast（N枚以上）か atMost（N枚以下。0なら「ないとき」。拡張 Aether Atelier で足した）のどちらか1つ
+  if ((c.atLeast === undefined) === (c.atMost === undefined)) return err(`${where} は atLeast か atMost のどちらか1つ`);
+  if (c.atLeast !== undefined && !(Number.isInteger(c.atLeast) && c.atLeast >= 1)) err(`${where}.atLeast は1以上の整数`);
+  if (c.atMost !== undefined && !(Number.isInteger(c.atMost) && c.atMost >= 0)) err(`${where}.atMost は0以上の整数`);
 }
 
 export function validateEffect(e, where, ctx, err) {

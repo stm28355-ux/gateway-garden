@@ -34,3 +34,13 @@ test('拡張「号令の戦場」の住人はどれも絵がある（判定 AB1�
   for (const c of ab) assert.match(cardArt({ ...c, origin: 'auto-battler-1' }, 32) ?? '', /^<svg/, `「${c.name}」の絵がない`);
   for (const c of cards) assert.match(cardArt({ ...c, origin: 'base' }, 32) ?? '', /^<svg/, `「${c.name}」の絵がない`);
 });
+
+test('拡張「魔導具の工房」の住人はどれも絵がある（本家 Aether Atelier の機械と素材の絵）', async () => {
+  const { cardArt } = await import('../src/art/index.js');
+  const aa = JSON.parse(readFileSync(new URL('../expansions/aether-atelier-1/cards.json', import.meta.url), 'utf8'));
+  for (const c of aa) {
+    const svg = cardArt({ ...c, origin: 'aether-atelier-1' }, 32) ?? '';
+    assert.match(svg, /^<svg/, `「${c.name}」の絵がない`);
+    assert.ok((svg.match(/<rect/g) ?? []).length > 10, `「${c.name}」の絵が小さすぎる`);
+  }
+});

@@ -9,7 +9,7 @@ import { ELEMENTS } from './schema.js';
 import { GOALS, goalProgress, goalPointsOf } from './goals.js';
 import { GROWTH } from './schema.js';
 import {
-  applyMut, autoPay, buyCost, defOf, stageOf, growCost, limitOf, pickOrder, scoreOf, emptyMana, countIn,
+  applyMut, autoPay, buyCost, defOf, stageOf, growCost, limitOf, pickOrder, scoreOf, emptyMana, countIn, condOk,
 } from './game.js';
 
 const W = { prod: 0.45, mana: 0.5, spare: 0.15, growth: 0.6, goal: 4 }; // 評価の重み（調整で直す）
@@ -40,6 +40,8 @@ function prodOf(cat, pl, o = PROFILES.normal) {
   pl.garden.forEach((inst, cell) => {
     if (!inst) return;
     for (const e of stageOf(cat, inst).effects) {
+      if (!condOk(cat, pl, cell, e)) continue; // 今の庭で条件（N枚以上・以下、場所）に合わない効果は数えない
+      if (e.when === 'activate' && e.do === 'stageUp' && e.area === 'self') { v += 1.5 * (inst.stage < 3 ? 1 : 0); continue; }
       const mult = e.per ? countIn(cat, pl, cell, e.per) : 1;
       const n = (e.amount ?? 1) * mult;
       if (e.when === 'activate' && e.do === 'gain') v += e.color === 'any' ? n * 1.2 : n;
@@ -290,10 +292,12 @@ function pickCandidates(cat, st, p) {
   const want = wantOf(cat, pl);
   const adds = bendCells(cat, pl, 'add').map((cell) => ({ cell, kind: 'add' }));
   const swaps = bendCells(cat, pl, 'swap');
+  // 1枚のカードは1回の摘みで1回だけ曲げられる（D12）。おかわりと入れ替えの両方を持つカード（工房の研磨機）は、入れ替えに使うとおかわりしない
+  const swapCell = swaps.find((c) => !adds.some((x) => x.cell === c)) ?? swaps[0];
   const out = [];
   st.bundles.forEach((_, b) => {
     const bendSets = [adds];
-    if (swaps.length) bendSets.push([bestSwap(st, b, swaps[0], want, pl.mana), ...adds]);
+    if (swaps.length) bendSets.push([bestSwap(st, b, swapCell, want, pl.mana), ...adds.filter((x) => x.cell !== swapCell)]);
     for (const bends of bendSets) {
       const base = { type: 'pick', player: p, bundle: b, bends, buy: null };
       out.push(base);

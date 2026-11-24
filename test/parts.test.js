@@ -202,3 +202,50 @@ test('斜め：斜めの4マス（角は1マス、辺は2マス）', () => {
   assert.equal(countIn(cat2, st.players[0], 4, { area: 'diagonal' }), 4);
   assert.equal(countIn(cat2, st.players[0], 0, { area: 'diagonal' }), 1); // 角（0）の斜めは中央（4）だけ
 });
+
+// ---- 拡張 Aether Atelier で足した部品：N枚以下のとき（if.atMost）・同じカード（filter same）----
+const aaExp = {
+  meta: { id: 'parts-aa', name: '部品の試し3', version: '0.1.0', authors: ['test'] },
+  cards: [
+    card(1, 'blue', 'generate', [[{ when: 'activate', do: 'gain', color: 'blue', amount: 1, if: { area: 'adjacent', filter: { element: 'blue' }, atMost: 0 } }], [], []]),
+    card(2, 'yellow', 'generate', [[{ when: 'activate', do: 'gain', color: 'yellow', amount: 3, if: { area: 'adjacent', atMost: 2 } }], [], []]),
+    card(3, 'yellow', 'generate', [[{ when: 'activate', do: 'gain', color: 'yellow', amount: 1, per: { area: 'adjacent', filter: { same: true } } }], [], []]),
+  ].map((c) => ({ ...c, id: c.id.replace('parts-test', 'parts-aa') })),
+};
+const cat3 = buildCatalog([base, aaExp]);
+function doneState(cards) {
+  const st = createGame(cat3, { players: [{ name: 'A' }, { name: 'B' }], seed: 7, firstPlayer: 0 });
+  st.phase = 'react';
+  st.players[0].status = 'acting';
+  st.players[0].pending = [];
+  let uid = 5000;
+  for (const [cell, id, stage = 1] of cards) st.players[0].garden[cell] = { uid: uid++, id, stage };
+  const before = { ...st.players[0].mana };
+  applyMut(cat3, st, { type: 'done', player: 0 });
+  return { pl: st.players[0], before };
+}
+
+test('N枚以下のとき：0なら「ないとき」、数を超えると動かない', () => {
+  assert.deepEqual(validateExpansion('parts-aa', aaExp.meta, aaExp.cards), []);
+  assert.deepEqual(stageLines(cat3.cards['parts-aa-1'], 0), ['開花：隣に青いカードがないとき、産出1（青）']);
+  assert.deepEqual(stageLines(cat3.cards['parts-aa-2'], 0), ['開花：隣のカードが2枚以下なら、産出3（黄）']);
+  const alone = doneState([[4, 'parts-aa-1']]);
+  assert.equal(alone.pl.mana.blue - alone.before.blue, 1);
+  const blue = byName(cat3, 'しずくクラゲ');
+  const near = doneState([[4, 'parts-aa-1'], [1, blue]]);
+  const only = doneState([[1, blue]]);
+  assert.equal(near.pl.mana.blue - near.before.blue, only.pl.mana.blue - only.before.blue); // 隣に青があるので動かない（しずくクラゲが生む分だけ）
+  const corner = doneState([[0, 'parts-aa-2'], [1, blue], [3, blue]]);
+  assert.equal(corner.pl.mana.yellow - corner.before.yellow, 3); // 角：隣は2枚
+  const center = doneState([[4, 'parts-aa-2'], [1, blue], [3, blue], [5, blue]]);
+  assert.equal(center.pl.mana.yellow - center.before.yellow, 0); // 隣が3枚
+  // atLeast と atMost を両方書くのは誤り
+  const bad = [{ ...aaExp.cards[0], stages: [{ effects: [{ when: 'activate', do: 'gain', color: 'blue', amount: 1, if: { area: 'adjacent', atLeast: 1, atMost: 2 } }] }, { effects: [] }, { effects: [] }] }];
+  assert.ok(validateExpansion('parts-aa', aaExp.meta, bad).length > 0);
+});
+
+test('同じカード：隣の同じカードごとに', () => {
+  const { pl, before } = doneState([[0, 'parts-aa-3'], [1, 'parts-aa-3'], [2, 'parts-aa-3']]);
+  assert.equal(pl.mana.yellow - before.yellow, 4); // 端は1枚ずつ、真ん中は2枚
+  assert.deepEqual(stageLines(cat3.cards['parts-aa-3'], 0), ['開花：隣の同じカードごとに産出1（黄）']);
+});

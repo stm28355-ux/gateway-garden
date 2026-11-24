@@ -1,0 +1,62 @@
+{
+  "id": "aether-atelier-1",
+  "name": "魔導具の工房（Aether Atelier）",
+  "short": "工房",
+  "version": "0.1.0",
+  "authors": [
+    "Gateway Garden"
+  ],
+  "note": "霧の町の魔導具の工房の機械と素材。赤＝炉と熱、青＝霜とエーテル水、黄＝機工、緑＝育てる、白＝光とエーテル",
+  "goals": [
+    {
+      "id": "clocktower",
+      "name": "時計塔",
+      "text": "T字の4マスを、★★★のカードで埋める（時計塔の形）",
+      "kind": "shape",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "filter": {
+        "minStage": 3
+      }
+    },
+    {
+      "id": "bridge",
+      "name": "浮き橋",
+      "text": "斜めの3マス（角から角）を、★★★のカードで埋める（水にかかる浮き橋の形）",
+      "kind": "shape",
+      "cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "filter": {
+        "minStage": 3
+      }
+    }
+  ]
+}

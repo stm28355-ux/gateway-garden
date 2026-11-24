@@ -58,6 +58,7 @@ export function matches(cat, pl, srcCell, cell, filter) {
   if (filter.origin === 'same' && d.origin !== src.origin) return false;
   if (filter.origin === 'other' && d.origin === src.origin) return false;
   if (filter.position !== undefined && position(cell) !== filter.position) return false;
+  if (filter.same && d.name !== src.name) return false;
   return true;
 }
 
@@ -80,9 +81,13 @@ export function cellsIn(cat, pl, src, area, filter) {
 export const countIn = (cat, pl, srcCell, { area, filter }) =>
   cellsIn(cat, pl, srcCell, area, filter).filter((c) => matches(cat, pl, srcCell, c, filter)).length;
 
-function condOk(cat, pl, cell, eff) {
+export function condOk(cat, pl, cell, eff) {
   if (eff.at && position(cell) !== eff.at) return false;
-  if (eff.if && countIn(cat, pl, cell, eff.if) < eff.if.atLeast) return false;
+  if (eff.if) {
+    const n = countIn(cat, pl, cell, eff.if);
+    if (eff.if.atLeast !== undefined && n < eff.if.atLeast) return false;
+    if (eff.if.atMost !== undefined && n > eff.if.atMost) return false; // 「N枚以下のとき」（0なら「ないとき」）
+  }
   return true;
 }
 const multOf = (cat, pl, cell, eff) => (eff.per ? countIn(cat, pl, cell, eff.per) : 1);
@@ -102,6 +107,7 @@ function alwaysSum(cat, pl, doName, targetCell) {
   });
   return sum;
 }
+
 
 export function growCost(cat, pl, cell) {
   const inst = pl.garden[cell];
