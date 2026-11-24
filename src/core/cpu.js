@@ -9,7 +9,7 @@ import { ELEMENTS } from './schema.js';
 import { GOALS, goalProgress, goalPointsOf } from './goals.js';
 import { GROWTH } from './schema.js';
 import {
-  applyMut, autoPay, buyCost, defOf, stageOf, growCost, limitOf, pickOrder, scoreOf, emptyMana, countIn, halted,
+  applyMut, autoPay, buyCost, defOf, stageOf, growCost, limitOf, pickOrder, scoreOf, emptyMana, countIn, condOk,
 } from './game.js';
 
 const W = { prod: 0.45, mana: 0.5, spare: 0.15, growth: 0.6, goal: 4 }; // 評価の重み（調整で直す）
@@ -39,10 +39,8 @@ function prodOf(cat, pl, o = PROFILES.normal) {
   let v = 0;
   pl.garden.forEach((inst, cell) => {
     if (!inst) return;
-    const stopped = halted(cat, pl, cell);
-    for (const e0 of stageOf(cat, inst).effects) {
-      if (stopped && (e0.when === 'activate' || e0.when === 'dusk')) continue; // 止められている
-      const e = e0.when === 'dusk' ? { ...e0, when: 'activate' } : e0; // 夜露も毎ラウンド動くので、開花と同じに数える
+    for (const e of stageOf(cat, inst).effects) {
+      if (!condOk(cat, pl, cell, e)) continue; // 今の庭で条件（N枚以上・以下、場所）に合わない効果は数えない
       if (e.when === 'activate' && e.do === 'stageUp' && e.area === 'self') { v += 1.5 * (inst.stage < 3 ? 1 : 0); continue; }
       const mult = e.per ? countIn(cat, pl, cell, e.per) : 1;
       const n = (e.amount ?? 1) * mult;

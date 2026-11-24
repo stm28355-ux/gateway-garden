@@ -20,7 +20,6 @@ export const KEYWORDS = {
   end: { word: '実り', help: 'ゲームの終わりに点になる' },
   always: { word: '加護', help: '置いてある間ずっと' },
   use: { word: '手入れ', help: '手入れフェーズで好きなときに。1ラウンドに1回' },
-  dusk: { word: '夜露', help: 'ラウンドの終わりに毎回、開花がすべて終わったあと。呼応では動かない' },
 };
 export const RESONATE = { word: '呼応', help: 'そのカードの「開花」を、今すぐもう1回動かす' };
 // 長い決まった文や、よく出る文を短い言葉にまとめる（工程9 F1〜F3・産出。呼応と同じく、マウスを乗せると説明が出る）
@@ -33,7 +32,6 @@ export const TERMS = {
   copy: { word: '複製', help: 'カード1枚の写し（同じカード）を、手元のカードに加える。1ラウンドに1枚まで' },
   connected: { word: '連なり', help: 'このカードから上下左右に、条件に合うカードでつながっている全部' },
   evolve: { word: '進化', help: 'このカードを、決まった別のカードに替える。★は★1に戻る' },
-  halt: { word: '止める', help: 'そのカードの開花と夜露が動かない（呼応でも動かない）。来訪・芽吹き・加護・手入れ・実りは動く' },
 };
 
 let explain = false; // 「説明も書く」
@@ -64,12 +62,13 @@ function filterWords(f) {
   return w.join('');
 }
 
-function target(area, filter, html = false) {
+// at='に' なら「隣に青いカード」（「〜があるとき・ないとき」の条件で使う）
+function target(area, filter, html = false, at = 'の') {
   if (area === 'self') return 'このカード';
   const f = filterWords(filter);
   const a = area === 'connected' && html ? kwHtml(TERMS.connected) : AREA_JA[area];
-  if (f === '空きマス') return `${a}の空きマス`;
-  return `${a}の${f}カード`;
+  if (f === '空きマス') return `${a}${at}空きマス`;
+  return `${a}${at}${f}カード`;
 }
 
 // 本文（キーワードの後ろ）。html=true のときは呼応をキーワードとして描く
@@ -99,7 +98,6 @@ function body(e, def, html) {
       const w = html ? kwHtml(TERMS.remove) : '溶解';
       return `${target(e.area, e.filter, html)}1枚まで${w}（その★ごとに、このカードを★1つ育てる）`;
     }
-    case 'halt': return `${target(e.area, e.filter, html)}を${html ? kwHtml(TERMS.halt) : '止める'}`;
     case 'copy': {
       const w = html ? kwHtml(TERMS.copy) : '複製';
       return (e.area ?? 'self') === 'self' ? `このカードを${w}` : `${target(e.area, e.filter, html)}1枚を${w}`;
@@ -111,7 +109,14 @@ function body(e, def, html) {
 
 function wrap(e, s, html = false) {
   if (e.per) s = `${target(e.per.area, e.per.filter, html)}ごとに${s}`;
-  if (e.if) s = `${target(e.if.area, e.if.filter, html)}が${e.if.atLeast}枚以上なら、${s}`;
+  if (e.if) {
+    const t = target(e.if.area, e.if.filter, html);
+    const ni = target(e.if.area, e.if.filter, html, 'に');
+    if (e.if.atMost === 0) s = `${ni}がないとき、${s}`;
+    else if (e.if.atLeast === 1) s = `${ni}があるとき、${s}`;
+    else if (e.if.atMost !== undefined) s = `${t}が${e.if.atMost}枚以下なら、${s}`;
+    else s = `${t}が${e.if.atLeast}枚以上なら、${s}`;
+  }
   if (e.at) s = `${POS_JA[e.at]}にあれば、${s}`;
   return s;
 }

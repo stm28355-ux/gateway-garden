@@ -11,10 +11,9 @@ export const GROWTH = { early: [1, 3], flat: [2, 3], late: [3, 4] }; // 早熟�
 // いつ（フェーズ2で always と use を足した）
 // place 置いたとき・activate 毎ラウンドの発動・grow その段階になったとき・pick 拾うとき・end 終わりの得点
 // always 置いてある間ずっと・use 反応フェーズの育てる所で、好きなときに1ラウンド1回使える
-// dusk 夜露：毎ラウンド、開花がすべて終わったあと（拡張 Aether Atelier で足した。「時間で変わる」を書く）
-export const WHEN = ['place', 'activate', 'grow', 'pick', 'end', 'always', 'use', 'dusk'];
-// 常に効く部品（値段を下げる・上限を広げる・止める）は always だけで書く
-const ALWAYS_ONLY = ['discount', 'limit', 'halt'];
+export const WHEN = ['place', 'activate', 'grow', 'pick', 'end', 'always', 'use'];
+// 常に効く部品（値段を下げる・上限を広げる）は always だけで書く
+const ALWAYS_ONLY = ['discount', 'limit'];
 
 // 範囲（どこ）。向きは入れない（D11）。
 // connected（連なり）：このカードから上下左右に、条件に合うカードでつながっている全部（拡張 Celestial Alchemy で足した）
@@ -41,7 +40,6 @@ export const ACTIONS = {
   copy: [],                         // 複製：範囲（なければこのカード）の1枚の写しを、手元のカードに加える（1人1ラウンドに1枚まで）
   evolve: ['into', 'amount'],       // 進化：このカードを into のカード（同じ世界）に替える。★1に戻る。amount（なくてもよい）点を得る
   fuse: [],                         // 融合：範囲のカード1枚まで（選ぶ）を溶かし、そのカードの★の数だけこのカードを育てる。★★★を超える分は1つ1点
-  halt: [],                         // 止める：範囲のカードの開花と夜露が動かない（呼応でも動かない）。always だけ（拡張 Aether Atelier で足した）
 };
 const OPTIONAL_AMOUNT = ['remove', 'evolve'];
 
@@ -66,7 +64,11 @@ function checkCount(c, where, err, needAtLeast) {
   if (c == null) return;
   if (!AREAS.includes(c.area)) err(`${where}.area が正しくない`);
   checkFilter(c.filter, `${where}.filter`, err);
-  if (needAtLeast && !(Number.isInteger(c.atLeast) && c.atLeast >= 1)) err(`${where}.atLeast は1以上の整数`);
+  if (!needAtLeast) return;
+  // if は atLeast（N枚以上）か atMost（N枚以下。0なら「ないとき」。拡張 Aether Atelier で足した）のどちらか1つ
+  if ((c.atLeast === undefined) === (c.atMost === undefined)) return err(`${where} は atLeast か atMost のどちらか1つ`);
+  if (c.atLeast !== undefined && !(Number.isInteger(c.atLeast) && c.atLeast >= 1)) err(`${where}.atLeast は1以上の整数`);
+  if (c.atMost !== undefined && !(Number.isInteger(c.atMost) && c.atMost >= 0)) err(`${where}.atMost は0以上の整数`);
 }
 
 export function validateEffect(e, where, ctx, err) {
@@ -95,7 +97,7 @@ export function validateEffect(e, where, ctx, err) {
   if (e.when === 'grow' && ctx.stage === 1) err(`${where}: 段階1の「その段階になったとき」は起きない`);
   if (e.area !== undefined && !AREAS.includes(e.area)) err(`${where}: area が正しくない`);
   if (e.do === 'evolve' && typeof e.into !== 'string') err(`${where}: evolve には into（進化先のカードの id）が要る`);
-  if (['stageUp', 'discount', 'trigger', 'move', 'remove', 'fuse', 'halt'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);
+  if (['stageUp', 'discount', 'trigger', 'move', 'remove', 'fuse'].includes(e.do) && e.area === undefined) err(`${where}: ${e.do} には area が要る`);
   checkFilter(e.filter, `${where}.filter`, err);
   checkCount(e.per, `${where}.per`, err, false);
   checkCount(e.if, `${where}.if`, err, true);

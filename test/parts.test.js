@@ -203,12 +203,12 @@ test('斜め：斜めの4マス（角は1マス、辺は2マス）', () => {
   assert.equal(countIn(cat2, st.players[0], 0, { area: 'diagonal' }), 1); // 角（0）の斜めは中央（4）だけ
 });
 
-// ---- 拡張 Aether Atelier で足した部品：止める（halt）・夜露（dusk）・同じカード（filter same）----
+// ---- 拡張 Aether Atelier で足した部品：N枚以下のとき（if.atMost）・同じカード（filter same）----
 const aaExp = {
   meta: { id: 'parts-aa', name: '部品の試し3', version: '0.1.0', authors: ['test'] },
   cards: [
-    card(1, 'blue', 'generate', [[{ when: 'activate', do: 'gain', color: 'blue', amount: 1 }, { when: 'dusk', do: 'stageUp', amount: 1, area: 'self' }], [], []]),
-    card(2, 'yellow', 'boost', [[{ when: 'always', do: 'halt', area: 'adjacent' }], [], []]),
+    card(1, 'blue', 'generate', [[{ when: 'activate', do: 'gain', color: 'blue', amount: 1, if: { area: 'adjacent', filter: { element: 'blue' }, atMost: 0 } }], [], []]),
+    card(2, 'yellow', 'generate', [[{ when: 'activate', do: 'gain', color: 'yellow', amount: 3, if: { area: 'adjacent', atMost: 2 } }], [], []]),
     card(3, 'yellow', 'generate', [[{ when: 'activate', do: 'gain', color: 'yellow', amount: 1, per: { area: 'adjacent', filter: { same: true } } }], [], []]),
   ].map((c) => ({ ...c, id: c.id.replace('parts-test', 'parts-aa') })),
 };
@@ -225,22 +225,23 @@ function doneState(cards) {
   return { pl: st.players[0], before };
 }
 
-test('夜露：開花のあとに毎ラウンド動く（ここでは自分を★1つ育てる）', () => {
+test('N枚以下のとき：0なら「ないとき」、数を超えると動かない', () => {
   assert.deepEqual(validateExpansion('parts-aa', aaExp.meta, aaExp.cards), []);
-  const { pl, before } = doneState([[4, 'parts-aa-1']]);
-  assert.equal(pl.mana.blue - before.blue, 1);
-  assert.equal(pl.garden[4].stage, 2);
-  assert.deepEqual(stageLines(cat3.cards['parts-aa-1'], 0), ['開花：産出1（青）', '夜露：このカードを★1つ育てる']);
-});
-
-test('止める：範囲のカードの開花と夜露が動かない', () => {
-  const { pl, before } = doneState([[4, 'parts-aa-1'], [1, 'parts-aa-2']]);
-  assert.equal(pl.mana.blue - before.blue, 0);
-  assert.equal(pl.garden[4].stage, 1);
-  assert.deepEqual(stageLines(cat3.cards['parts-aa-2'], 0), ['加護：隣のカードを止める']);
-  // 範囲の外なら動く
-  const far = doneState([[4, 'parts-aa-1'], [0, 'parts-aa-2']]);
-  assert.equal(far.pl.garden[4].stage, 2);
+  assert.deepEqual(stageLines(cat3.cards['parts-aa-1'], 0), ['開花：隣に青いカードがないとき、産出1（青）']);
+  assert.deepEqual(stageLines(cat3.cards['parts-aa-2'], 0), ['開花：隣のカードが2枚以下なら、産出3（黄）']);
+  const alone = doneState([[4, 'parts-aa-1']]);
+  assert.equal(alone.pl.mana.blue - alone.before.blue, 1);
+  const blue = byName(cat3, 'しずくクラゲ');
+  const near = doneState([[4, 'parts-aa-1'], [1, blue]]);
+  const only = doneState([[1, blue]]);
+  assert.equal(near.pl.mana.blue - near.before.blue, only.pl.mana.blue - only.before.blue); // 隣に青があるので動かない（しずくクラゲが生む分だけ）
+  const corner = doneState([[0, 'parts-aa-2'], [1, blue], [3, blue]]);
+  assert.equal(corner.pl.mana.yellow - corner.before.yellow, 3); // 角：隣は2枚
+  const center = doneState([[4, 'parts-aa-2'], [1, blue], [3, blue], [5, blue]]);
+  assert.equal(center.pl.mana.yellow - center.before.yellow, 0); // 隣が3枚
+  // atLeast と atMost を両方書くのは誤り
+  const bad = [{ ...aaExp.cards[0], stages: [{ effects: [{ when: 'activate', do: 'gain', color: 'blue', amount: 1, if: { area: 'adjacent', atLeast: 1, atMost: 2 } }] }, { effects: [] }, { effects: [] }] }];
+  assert.ok(validateExpansion('parts-aa', aaExp.meta, bad).length > 0);
 });
 
 test('同じカード：隣の同じカードごとに', () => {

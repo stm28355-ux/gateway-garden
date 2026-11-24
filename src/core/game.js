@@ -81,9 +81,13 @@ export function cellsIn(cat, pl, src, area, filter) {
 export const countIn = (cat, pl, srcCell, { area, filter }) =>
   cellsIn(cat, pl, srcCell, area, filter).filter((c) => matches(cat, pl, srcCell, c, filter)).length;
 
-function condOk(cat, pl, cell, eff) {
+export function condOk(cat, pl, cell, eff) {
   if (eff.at && position(cell) !== eff.at) return false;
-  if (eff.if && countIn(cat, pl, cell, eff.if) < eff.if.atLeast) return false;
+  if (eff.if) {
+    const n = countIn(cat, pl, cell, eff.if);
+    if (eff.if.atLeast !== undefined && n < eff.if.atLeast) return false;
+    if (eff.if.atMost !== undefined && n > eff.if.atMost) return false; // 「N枚以下のとき」（0なら「ないとき」）
+  }
   return true;
 }
 const multOf = (cat, pl, cell, eff) => (eff.per ? countIn(cat, pl, cell, eff.per) : 1);
@@ -104,11 +108,6 @@ function alwaysSum(cat, pl, doName, targetCell) {
   return sum;
 }
 
-// 止められているか（ほかのカードの「加護：…を止める」の範囲にいる）。止められたカードは開花と夜露が動かない
-export function halted(cat, pl, cell) {
-  return pl.garden.some((inst, j) => inst && j !== cell && effectsOf(cat, inst).some((e) => e.when === 'always' && e.do === 'halt' && condOk(cat, pl, j, e)
-    && cellsIn(cat, pl, j, e.area, e.filter).includes(cell) && matches(cat, pl, j, cell, e.filter)));
-}
 
 export function growCost(cat, pl, cell) {
   const inst = pl.garden[cell];
@@ -254,7 +253,6 @@ function runEffect(cat, st, pl, task) {
   const inst = pl.garden[cell];
   const { eff } = task;
   if (!condOk(cat, pl, cell, eff)) return;
-  if ((eff.when === 'activate' || eff.when === 'dusk') && halted(cat, pl, cell)) return; // 止められている
   const mult = multOf(cat, pl, cell, eff);
   if (mult === 0) return;
   const n = (eff.amount ?? 1) * mult;
@@ -316,12 +314,6 @@ function runEffect(cat, st, pl, task) {
 
 function runTask(cat, st, pl, task) {
   if (task.t === 'eff') return runEffect(cat, st, pl, task);
-  if (task.t === 'dusk') { // 夜露：開花がすべて終わったあと、その時の庭の左上から順に
-    const tasks = [];
-    for (const inst of pl.garden) if (inst) tasks.push(...effectTasks(cat, inst, 'dusk', task.chain));
-    pl.queue.unshift(...tasks);
-    return;
-  }
   // 選ぶ所には、効果を出している札（source）を付ける。画面で光らせるため
   if (task.t === 'color') {
     pl.choice = { kind: 'color', options: [...ELEMENTS], source: task.uid };
@@ -651,7 +643,6 @@ export function applyMut(cat, st, a) {
         pl.chains[chain].push(inst.uid);
         pl.queue.push(...effectTasks(cat, inst, 'activate', chain));
       }
-      pl.queue.push({ t: 'dusk', chain: newChain(pl) });
       break;
     }
     case 'choose': {
