@@ -292,10 +292,12 @@ function pickCandidates(cat, st, p) {
   const want = wantOf(cat, pl);
   const adds = bendCells(cat, pl, 'add').map((cell) => ({ cell, kind: 'add' }));
   const swaps = bendCells(cat, pl, 'swap');
+  // 1枚のカードは1回の摘みで1回だけ曲げられる（D12）。おかわりと入れ替えの両方を持つカード（工房の研磨機）は、入れ替えに使うとおかわりしない
+  const swapCell = swaps.find((c) => !adds.some((x) => x.cell === c)) ?? swaps[0];
   const out = [];
   st.bundles.forEach((_, b) => {
     const bendSets = [adds];
-    if (swaps.length) bendSets.push([bestSwap(st, b, swaps[0], want, pl.mana), ...adds]);
+    if (swaps.length) bendSets.push([bestSwap(st, b, swapCell, want, pl.mana), ...adds.filter((x) => x.cell !== swapCell)]);
     for (const bends of bendSets) {
       const base = { type: 'pick', player: p, bundle: b, bends, buy: null };
       out.push(base);

@@ -321,7 +321,8 @@ function bendCells(kind) {
 }
 
 function pickBase() {
-  const bends = bendCells('add').map((cell) => ({ cell, kind: 'add' }));
+  // 1枚のカードは1回の摘みで1回だけ（D12）。入れ替えに使ったカード（工房の研磨機）は、おかわりしない
+  const bends = bendCells('add').filter((cell) => cell !== ui.swap?.cell).map((cell) => ({ cell, kind: 'add' }));
   if (ui.swap) bends.unshift(ui.swap);
   return { type: 'pick', player: ME, bundle: ui.bundle, bends, buys: [] };
 }
@@ -444,7 +445,7 @@ function swapHtml() {
   let body;
   if (ui.bundle === null) body = '<span class="muted">束を選ぶと使える</span>';
   else if (ui.swap) body = '印の2つを入れ替える <button data-act="swap-clear">やめる</button>';
-  else if (ui.swapCell === null) body = `<button data-act="swap-start" data-cell="${swaps[0]}">入れ替える</button>`;
+  else if (ui.swapCell === null) body = `<button data-act="swap-start" data-cell="${swaps.find((c) => !bendCells('add').includes(c)) ?? swaps[0]}">入れ替える</button>`;
   else body = ui.give === null ? '選んだ束の、替えたい魔素を押す' : '替える相手（別の束）の魔素を押す';
   return `<div class="swap-box"><small>入れ替え（${names}）</small><div>${body}</div></div>`;
 }

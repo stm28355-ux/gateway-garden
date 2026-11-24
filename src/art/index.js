@@ -4,6 +4,7 @@ import { baseArt } from './base.js';
 import { autoBattlerArt } from './auto-battler-1.js';
 import { celestialArt } from './celestial-alchemy-1.js';
 import { arcEnCielArt } from './arc-en-ciel.js';
+import { aetherArt } from './aether-atelier-1.js';
 
 const BY_ORIGIN = {
   base: baseArt,
@@ -11,6 +12,7 @@ const BY_ORIGIN = {
   'celestial-alchemy-1': celestialArt, // 32×32 のドット絵（人に顔、物は顔なし）
   'arc-en-ciel-1': arcEnCielArt, // 本家 Arc-en-ciel Creator のモンスターの絵（32×32）をそのまま
   'arc-en-ciel-2': arcEnCielArt,
+  'aether-atelier-1': aetherArt, // 本家 Aether Atelier の機械と素材のドット絵（機械は1マス20ドット、素材は16×16）をそのまま
 };
 
 export function cardArt(d, size = 96) {
